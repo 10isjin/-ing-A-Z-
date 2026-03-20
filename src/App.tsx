@@ -7,10 +7,12 @@ import Posts from './pages/Posts';
 import PostDetail from './pages/PostDetail';
 import Apps from './pages/Apps';
 import Admin from './pages/Admin';
+import ScrollToTop from './components/ScrollToTop';
 
 export default function App() {
   return (
     <Router>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
