@@ -3,6 +3,7 @@ import { Instagram, Youtube, Facebook, MapPin, Phone, Mail, Lock } from 'lucide-
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db, loginWithGoogle } from '../firebase';
 import { SiteSettings } from '../types';
+import { Link } from 'react-router-dom';
 
 export default function Footer() {
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({
@@ -68,10 +69,10 @@ export default function Footer() {
           <div>
             <h3 className="font-bold text-gray-900 mb-6">바로가기</h3>
             <ul className="space-y-4">
-              <li><a href="/" className="text-gray-500 hover:text-green-600 text-sm transition-colors">홈</a></li>
-              <li><a href="/news" className="text-gray-500 hover:text-green-600 text-sm transition-colors">NEWS</a></li>
-              <li><a href="/posts" className="text-gray-500 hover:text-green-600 text-sm transition-colors">GALLERY</a></li>
-              <li><a href="/apps" className="text-gray-500 hover:text-green-600 text-sm transition-colors">Apps</a></li>
+              <li><Link to="/" className="text-gray-500 hover:text-green-600 text-sm transition-colors">홈</Link></li>
+              <li><Link to="/news" className="text-gray-500 hover:text-green-600 text-sm transition-colors">NEWS</Link></li>
+              <li><Link to="/posts" className="text-gray-500 hover:text-green-600 text-sm transition-colors">GALLERY</Link></li>
+              <li><Link to="/apps" className="text-gray-500 hover:text-green-600 text-sm transition-colors">Apps</Link></li>
             </ul>
           </div>
 
