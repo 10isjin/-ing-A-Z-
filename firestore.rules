@@ -1,0 +1,102 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: posts
+// Document ID: {postId}
+// Fields:
+//   - title: string (required, 1-100 chars)
+//   - content: string (required, 1-10000 chars)
+//   - category: string (required, 1-50 chars)
+//   - imageUrl: string (optional, URL)
+//   - authorId: string (required, UID)
+//   - authorName: string (optional, 1-50 chars)
+//   - createdAt: timestamp (required)
+//   - updatedAt: timestamp (optional)
+//
+// Collection: settings
+// Document ID: global
+// Fields:
+//   - siteName: string
+//   - primaryColor: string
+//   - secondaryColor: string
+//   - heroTitle: string
+//   - heroSubtitle: string
+//   - footerText: string
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "yelloboll@goedu.kr" || 
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+    }
+
+    // Simplified admin check for debugging/robustness
+    function isSuperAdmin() {
+      return isAuthenticated() && request.auth.token.email == "yelloboll@goedu.kr";
+    }
+
+    function isDocOwner(data) {
+      return isAuthenticated() && request.auth.uid == data.authorId;
+    }
+
+    function isValidPost(data) {
+      let validCategories = ['class', 'lunch', 'sports_club', 'festival', 'project', 'health_fitness', 'oasis', 'paps', 'character'];
+      return data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+             data.content is string && data.content.size() > 0 && data.content.size() <= 10000 &&
+             data.category in validCategories &&
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 2000));
+    }
+
+    function isUnchanged(field) {
+      return !(field in request.resource.data) || request.resource.data[field] == resource.data[field];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /posts/{postId} {
+      allow read: if true; // Publicly readable
+      allow create: if isAdmin() && isValidPost(request.resource.data) && request.resource.data.authorId == request.auth.uid;
+      allow update: if isAdmin() && isValidPost(request.resource.data) && 
+                      (isDocOwner(resource.data) || isAdmin()) &&
+                      isUnchanged('authorId') && isUnchanged('createdAt');
+      allow delete: if isAdmin();
+    }
+
+    match /settings/global {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /highlights/{highlightId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /apps/{appId} {
+      allow read: if true;
+      allow write: if isAdmin() || isSuperAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if isAdmin();
+    }
+  }
+}

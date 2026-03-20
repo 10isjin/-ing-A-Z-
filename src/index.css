@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Square+Round:wght@300;400;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Nanum Square Round", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply text-gray-900 antialiased bg-white;
+    font-family: "Nanum Square Round", sans-serif;
+  }
+}
+
+@layer components {
+  .markdown-body {
+    @apply text-gray-700 leading-relaxed;
+  }
+  .markdown-body h1 { @apply text-3xl font-extrabold mt-8 mb-4 text-gray-900; }
+  .markdown-body h2 { @apply text-2xl font-bold mt-6 mb-3 text-gray-900; }
+  .markdown-body h3 { @apply text-xl font-bold mt-4 mb-2 text-gray-900; }
+  .markdown-body p { @apply mb-4; }
+  .markdown-body ul { @apply list-disc pl-6 mb-4 space-y-2; }
+  .markdown-body ol { @apply list-decimal pl-6 mb-4 space-y-2; }
+  .markdown-body blockquote { @apply border-l-4 border-green-400 pl-4 italic text-gray-500 my-6 bg-gray-50 py-2 rounded-r-lg; }
+  .markdown-body code { @apply bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-pink-500; }
+  .markdown-body pre { @apply bg-gray-900 text-gray-100 p-4 rounded-2xl overflow-x-auto my-6; }
+  .markdown-body img { @apply rounded-3xl my-8 shadow-xl; }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #d1d5db;
+}

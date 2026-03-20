@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "post": {
+      "title": "Sports Activity Post",
+      "description": "A post describing a school sports activity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the post." },
+        "title": { "type": "string", "description": "Title of the activity." },
+        "content": { "type": "string", "description": "Markdown content of the post." },
+        "category": { "type": "string", "description": "Category (e.g., Morning, Evening, Club)." },
+        "imageUrl": { "type": "string", "description": "URL of the activity image." },
+        "authorId": { "type": "string", "description": "UID of the teacher/admin who posted." },
+        "authorName": { "type": "string", "description": "Name of the author." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp." }
+      },
+      "required": ["title", "content", "category", "authorId", "createdAt"]
+    },
+    "siteSettings": {
+      "title": "Site Settings",
+      "description": "Global settings for the website.",
+      "type": "object",
+      "properties": {
+        "siteName": { "type": "string", "description": "Name of the website." },
+        "primaryColor": { "type": "string", "description": "Primary theme color (hex)." },
+        "secondaryColor": { "type": "string", "description": "Secondary theme color (hex)." },
+        "heroTitle": { "type": "string", "description": "Title on the hero section." },
+        "heroSubtitle": { "type": "string", "description": "Subtitle on the hero section." },
+        "footerText": { "type": "string", "description": "Text displayed in the footer." },
+        "aboutImage1": { "type": "string", "description": "First image on the about page." },
+        "aboutImage2": { "type": "string", "description": "Second image on the about page." },
+        "aboutImage3": { "type": "string", "description": "Third image on the about page." },
+        "aboutImage4": { "type": "string", "description": "Fourth image on the about page." },
+        "stat1Label": { "type": "string", "description": "Label for the first stat." },
+        "stat1Value": { "type": "string", "description": "Value for the first stat." },
+        "stat2Label": { "type": "string", "description": "Label for the second stat." },
+        "stat2Value": { "type": "string", "description": "Value for the second stat." },
+        "stat3Label": { "type": "string", "description": "Label for the third stat." },
+        "stat3Value": { "type": "string", "description": "Value for the third stat." },
+        "stat4Label": { "type": "string", "description": "Label for the fourth stat." },
+        "stat4Value": { "type": "string", "description": "Value for the fourth stat." }
+      }
+    },
+    "highlight": {
+      "title": "Activity Highlight",
+      "description": "A highlight image displayed on the home page.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the highlight." },
+        "imageUrl": { "type": "string", "description": "URL of the highlight image." },
+        "title": { "type": "string", "description": "Title/Caption of the highlight." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp." }
+      },
+      "required": ["imageUrl", "title", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/posts/{postId}": {
+      "schema": "post",
+      "description": "Collection of sports activity posts."
+    },
+    "/settings/global": {
+      "schema": "siteSettings",
+      "description": "Global website configuration."
+    },
+    "/highlights/{highlightId}": {
+      "schema": "highlight",
+      "description": "Collection of activity highlights for the home page."
+    }
+  }
+}
