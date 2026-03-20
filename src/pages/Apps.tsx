@@ -140,14 +140,17 @@ export default function Apps() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-12 pb-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-16">
+    <div className="pb-24">
+      <section className="relative py-24 overflow-hidden bg-blue-950">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.2),transparent_50%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:40px_40px]" />
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-bold mb-4"
+            className="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 backdrop-blur-md text-blue-400 text-sm font-bold mb-6"
           >
             <Smartphone size={18} />
             <span>스마트 체육 생활</span>
@@ -156,20 +159,23 @@ export default function Apps() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-3xl md:text-5xl font-black text-gray-900 mb-6 tracking-tight flex flex-col items-center md:flex-row md:justify-center md:gap-3"
+            className="text-4xl md:text-6xl font-black text-white mb-6 tracking-tight"
           >
-            <span className="whitespace-nowrap">자기주도 학습을 위한</span>
-            <span className="text-blue-600 whitespace-nowrap">체육 앱 추천</span>
+            자기주도 학습 <span className="text-blue-400">APPS</span>
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-lg text-gray-500 max-w-2xl mx-auto"
+            className="text-[10px] sm:text-sm md:text-lg text-gray-300 mx-auto leading-relaxed font-medium max-w-2xl whitespace-nowrap sm:whitespace-normal"
           >
             언제 어디서나 스스로 운동하고 건강을 관리할 수 있도록 도와주는 유용한 앱들을 소개합니다.
           </motion.p>
         </div>
+      </section>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Apps Grid */}
 
         {/* Apps Grid */}
         {loading ? (
@@ -181,7 +187,7 @@ export default function Apps() {
             {apps.some(app => app.isRecommended) ? (
               <section>
                 <div className="flex items-center space-x-3 mb-8">
-                  <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center text-yellow-600">
+                  <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
                     <Star size={24} fill="currentColor" />
                   </div>
                   <h2 className="text-2xl font-black text-gray-900 tracking-tight">추천 앱</h2>
@@ -194,21 +200,21 @@ export default function Apps() {
                       whileInView={{ opacity: 1, scale: 1 }}
                       viewport={{ once: true }}
                       transition={{ delay: idx * 0.1 }}
-                      className="bg-white rounded-3xl p-8 border-2 border-yellow-100 shadow-lg shadow-yellow-100/20 hover:shadow-xl hover:border-yellow-200 transition-all group relative overflow-hidden"
+                      className="bg-white rounded-3xl p-8 border-2 border-blue-100 shadow-lg shadow-blue-100/20 hover:shadow-xl hover:border-blue-200 transition-all group relative overflow-hidden"
                     >
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-yellow-100 transition-colors" />
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-blue-100 transition-colors" />
                       <div className="flex items-start space-x-6 relative z-10">
                         <div className={`w-16 h-16 ${app.color} rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
                           {getIcon(app.iconName)}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold text-yellow-600 uppercase tracking-wider">{app.category}</span>
+                            <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">{app.category}</span>
                             <a
                               href={app.link}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-gray-400 hover:text-yellow-600 transition-colors"
+                              className="text-gray-400 hover:text-blue-600 transition-colors"
                             >
                               <ExternalLink size={20} />
                             </a>
@@ -221,7 +227,7 @@ export default function Apps() {
                             href={app.link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center text-sm font-bold text-gray-900 group-hover:text-yellow-600 transition-colors"
+                            className="inline-flex items-center text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors"
                           >
                             자세히 보기 <ExternalLink size={14} className="ml-1" />
                           </a>
@@ -248,7 +254,7 @@ export default function Apps() {
           className="mt-20 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[3rem] p-10 md:p-16 text-white text-center relative overflow-hidden"
         >
           <div className="relative z-10">
-            <h2 className="text-3xl font-black mb-6">선생님이 전하는 활용 팁! 💡</h2>
+            <h2 className="text-2xl md:text-3xl font-black mb-6 whitespace-nowrap">선생님이 전하는 활용 팁! 💡</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
               <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10">
                 <div className="text-2xl mb-2">📅</div>
@@ -258,7 +264,7 @@ export default function Apps() {
               <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10">
                 <div className="text-2xl mb-2">🤝</div>
                 <h4 className="font-bold mb-2">친구와 함께!</h4>
-                <p className="text-sm text-blue-100">Strava 같은 앱으로 친구들과 기록을 공유하며 즐겁게 운동하세요.</p>
+                <p className="text-sm text-blue-100">추천 앱들을 활용해 친구들과 기록을 공유하며 즐겁게 운동하세요.</p>
               </div>
               <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10">
                 <div className="text-2xl mb-2">⚠️</div>

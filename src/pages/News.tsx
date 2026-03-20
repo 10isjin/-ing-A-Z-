@@ -52,17 +52,17 @@ export default function News() {
 
   const values = [
     { icon: <Target className="text-green-600" size={18} />, title: '목표', desc: '즐겁게 참여하는 체육 문화 조성' },
-    { icon: <Zap className="text-yellow-500" size={18} />, title: '열정', desc: '멈추지 않는 에너지 지원' },
-    { icon: <Shield className="text-blue-500" size={18} />, title: '안전', desc: '철저한 안전 관리 보장' },
-    { icon: <Award className="text-pink-500" size={18} />, title: '성장', desc: '협동심과 바른 인성 함양' },
+    { icon: <Zap className="text-green-500" size={18} />, title: '열정', desc: '멈추지 않는 에너지 지원' },
+    { icon: <Shield className="text-green-600" size={18} />, title: '안전', desc: '철저한 안전 관리 보장' },
+    { icon: <Award className="text-green-500" size={18} />, title: '성장', desc: '협동심과 바른 인성 함양' },
   ];
 
   return (
     <div className="pb-24">
-      <section className="relative py-24 overflow-hidden bg-slate-950">
+      <section className="relative py-24 overflow-hidden bg-green-950">
         <div className="absolute inset-0 z-0">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(22,163,74,0.15),transparent_50%)]" />
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(34,197,94,0.2),transparent_50%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:40px_40px]" />
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <motion.h1 
@@ -70,13 +70,13 @@ export default function News() {
             animate={{ opacity: 1, y: 0 }}
             className="text-4xl md:text-6xl font-black text-white mb-6 tracking-tight"
           >
-            체육 활동 <span className="text-green-500">NEWS</span>
+            체육 활동 <span className="text-green-400">NEWS</span>
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-[10px] sm:text-sm md:text-lg text-gray-400 mx-auto leading-relaxed font-medium max-w-2xl whitespace-nowrap sm:whitespace-normal"
+            className="text-[10px] sm:text-sm md:text-lg text-gray-300 mx-auto leading-relaxed font-medium max-w-2xl whitespace-nowrap sm:whitespace-normal"
           >
             갈매중학교 체육관련 최신 뉴스(NEWS)와 공지사항을 전해드립니다.
           </motion.p>

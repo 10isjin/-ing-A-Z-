@@ -39,8 +39,22 @@ export default function PostCard({ post }: PostCardProps) {
     ? format(post.createdAt.toDate(), 'yyyy년 MM월 dd일', { locale: ko })
     : '날짜 정보 없음';
 
+  const isGallery = post.type === 'gallery';
+  
+  const themeClasses = isGallery 
+    ? {
+        hoverShadow: 'hover:shadow-pink-500/5',
+        titleHover: 'group-hover:text-pink-600',
+        textAccent: 'text-pink-600'
+      }
+    : {
+        hoverShadow: 'hover:shadow-green-500/5',
+        titleHover: 'group-hover:text-green-600',
+        textAccent: 'text-green-600'
+      };
+
   return (
-    <div className="group bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-xl hover:shadow-green-500/5 transition-all duration-300 flex flex-col h-full">
+    <div className={`group bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-xl ${themeClasses.hoverShadow} transition-all duration-300 flex flex-col h-full`}>
       <div className="relative aspect-video overflow-hidden">
         <img
           src={getDirectImageUrl(post.imageUrl) || `https://picsum.photos/seed/${post.id}/800/450`}
@@ -62,7 +76,7 @@ export default function PostCard({ post }: PostCardProps) {
           </div>
         </div>
         
-        <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-green-600 transition-colors line-clamp-2">
+        <h3 className={`text-xl font-bold text-gray-900 mb-3 ${themeClasses.titleHover} transition-colors line-clamp-2`}>
           {post.title}
         </h3>
         
@@ -73,7 +87,7 @@ export default function PostCard({ post }: PostCardProps) {
         <div className="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center">
           <Link 
             to={`/posts/${post.id}`}
-            className="text-sm font-bold text-green-600 flex items-center space-x-1 hover:translate-x-1 transition-transform"
+            className={`text-sm font-bold ${themeClasses.textAccent} flex items-center space-x-1 hover:translate-x-1 transition-transform`}
           >
             <span>자세히 보기</span>
             <ArrowRight size={16} />

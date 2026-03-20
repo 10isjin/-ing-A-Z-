@@ -61,33 +61,33 @@ export default function Posts() {
   );
 
   const values = [
-    { icon: <Target className="text-green-600" size={18} />, title: '목표', desc: '즐겁게 참여하는 체육 문화 조성' },
-    { icon: <Zap className="text-yellow-500" size={18} />, title: '열정', desc: '멈추지 않는 에너지 지원' },
-    { icon: <Shield className="text-blue-500" size={18} />, title: '안전', desc: '철저한 안전 관리 보장' },
+    { icon: <Target className="text-pink-600" size={18} />, title: '목표', desc: '즐겁게 참여하는 체육 문화 조성' },
+    { icon: <Zap className="text-pink-500" size={18} />, title: '열정', desc: '멈추지 않는 에너지 지원' },
+    { icon: <Shield className="text-pink-600" size={18} />, title: '안전', desc: '철저한 안전 관리 보장' },
     { icon: <Award className="text-pink-500" size={18} />, title: '성장', desc: '협동심과 바른 인성 함양' },
   ];
 
   return (
     <div className="pb-24">
       {/* About Section Merged */}
-      <section className="relative py-24 overflow-hidden bg-slate-950">
+      <section className="relative py-24 overflow-hidden bg-pink-50">
         <div className="absolute inset-0 z-0">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(22,163,74,0.15),transparent_50%)]" />
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(244,114,182,0.1),transparent_50%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ec489908_1px,transparent_1px),linear-gradient(to_bottom,#ec489908_1px,transparent_1px)] bg-[size:40px_40px]" />
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-4xl md:text-6xl font-black text-white mb-6 tracking-tight"
+            className="text-4xl md:text-6xl font-black text-gray-900 mb-6 tracking-tight"
           >
-            체육 활동 <span className="text-green-500">GALLERY</span>
+            체육 활동 <span className="text-pink-500">GALLERY</span>
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-[10px] sm:text-sm md:text-lg text-gray-400 mx-auto leading-relaxed font-medium max-w-2xl whitespace-nowrap sm:whitespace-normal"
+            className="text-[10px] sm:text-sm md:text-lg text-gray-600 mx-auto leading-relaxed font-medium max-w-2xl whitespace-nowrap sm:whitespace-normal"
           >
             갈매중학교 학생들의 생생한 체육 활동 현장을 사진으로 만나보세요.
           </motion.p>
@@ -100,7 +100,7 @@ export default function Posts() {
           <div>
             <h2 className="text-2xl font-black text-gray-900 mb-4 leading-tight">
               생생한 활동의 순간을<br />
-              <span className="text-green-600">한눈에 확인하세요</span>
+              <span className="text-pink-600">한눈에 확인하세요</span>
             </h2>
             <div className="space-y-4">
               <p className="text-sm text-gray-600 leading-relaxed">
@@ -115,7 +115,7 @@ export default function Posts() {
                   '체육 활동 아카이브'
                 ].map((item, i) => (
                   <li key={i} className="flex items-center space-x-2 text-xs text-gray-700 font-medium">
-                    <CheckCircle2 className="text-green-500" size={14} />
+                    <CheckCircle2 className="text-pink-500" size={14} />
                     <span>{item}</span>
                   </li>
                 ))}
@@ -140,7 +140,7 @@ export default function Posts() {
           <div className="flex justify-center mb-12">
             <div className="relative w-full max-w-xl">
               <div className="flex items-center space-x-2 mb-3">
-                <Search size={16} className="text-green-600" />
+                <Search size={16} className="text-pink-600" />
                 <span className="text-sm font-black text-gray-900 uppercase tracking-wider">GALLERY 검색</span>
               </div>
               <div className="relative">
@@ -150,7 +150,7 @@ export default function Posts() {
                   placeholder="GALLERY에서 검색..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-base shadow-sm"
+                  className="w-full pl-12 pr-4 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 transition-all text-base shadow-sm"
                 />
               </div>
             </div>
