@@ -6,7 +6,7 @@ import { Post } from '../types';
 import { getDirectImageUrl, getYoutubeId } from '../imageUtils';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Calendar, User, ArrowLeft, Share2, Tag, X, Maximize2, FileText } from 'lucide-react';
+import { Calendar, User, ArrowLeft, Share2, Tag, X, Maximize2, FileText, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 export default function PostDetail() {
@@ -87,11 +87,62 @@ export default function PostDetail() {
     }
   };
 
+  const handleDownload = async () => {
+    if (!post.imageUrl) return;
+
+    const url = post.imageUrl.trim();
+    const driveIdMatch = url.match(/(?:id=|\/d\/|file\/d\/|open\?id=|docs\.google\.com\/.*?\/d\/)([\w-]{25,})[^\w-]?/);
+    
+    if (driveIdMatch && driveIdMatch[1]) {
+      const fileId = driveIdMatch[1];
+      const downloadUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
+      window.open(downloadUrl, '_blank');
+    } else {
+      // For other direct links, try to download via fetch or just open in new tab
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = post.title || 'download';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      } catch (error) {
+        console.error('Download failed, opening in new tab:', error);
+        window.open(url, '_blank');
+      }
+    }
+  };
+
+  const isGallery = post.type === 'gallery';
+  const themeClasses = isGallery 
+    ? {
+        text: 'text-pink-600',
+        textLight: 'text-pink-500',
+        hoverText: 'hover:text-pink-600',
+        bg: 'bg-pink-600',
+        bgHover: 'hover:bg-pink-700',
+        shadow: 'shadow-pink-500/10',
+        prose: 'prose-pink'
+      }
+    : {
+        text: 'text-green-600',
+        textLight: 'text-green-500',
+        hoverText: 'hover:text-green-600',
+        bg: 'bg-green-600',
+        bgHover: 'hover:bg-green-700',
+        shadow: 'shadow-green-500/10',
+        prose: 'prose-green'
+      };
+
   return (
     <article className="max-w-4xl mx-auto px-4 py-16 md:py-24">
       <button 
         onClick={() => navigate(-1)}
-        className="inline-flex items-center space-x-2 text-gray-400 hover:text-green-600 mb-8 transition-colors group"
+        className={`inline-flex items-center space-x-2 text-gray-400 ${themeClasses.hoverText} mb-8 transition-colors group`}
       >
         <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
         <span className="font-bold">뒤로가기</span>
@@ -103,24 +154,35 @@ export default function PostDetail() {
         </h1>
         <div className="flex flex-wrap items-center gap-6 text-sm text-gray-400 border-b border-gray-100 pb-8">
           <div className="flex items-center space-x-2">
-            <Calendar size={18} className="text-green-500" />
+            <Calendar size={18} className={themeClasses.textLight} />
             <span>{formattedDate}</span>
           </div>
           <div className="flex items-center space-x-2">
-            <User size={18} className="text-green-500" />
+            <User size={18} className={themeClasses.textLight} />
             <span className="font-medium text-gray-600">{post.authorName || '선생님'}</span>
           </div>
-          <button 
-            onClick={handleShare}
-            className="ml-auto flex items-center space-x-2 text-gray-400 hover:text-green-600 transition-colors"
-          >
-            <Share2 size={18} />
-            <span className="text-xs font-bold">공유하기</span>
-          </button>
+          <div className="ml-auto flex items-center space-x-4">
+            <button 
+              onClick={handleDownload}
+              className={`flex items-center space-x-2 text-gray-400 ${themeClasses.hoverText} transition-colors`}
+              title="파일 다운로드"
+            >
+              <Download size={18} />
+              <span className="text-xs font-bold">다운로드</span>
+            </button>
+            <button 
+              onClick={handleShare}
+              className={`flex items-center space-x-2 text-gray-400 ${themeClasses.hoverText} transition-colors`}
+              title="링크 공유하기"
+            >
+              <Share2 size={18} />
+              <span className="text-xs font-bold">공유하기</span>
+            </button>
+          </div>
         </div>
       </header>
 
-      <div className="relative group aspect-video rounded-[40px] overflow-hidden mb-12 shadow-2xl shadow-green-500/10">
+      <div className={`relative group aspect-video rounded-[40px] overflow-hidden mb-12 shadow-2xl ${themeClasses.shadow}`}>
         {getYoutubeId(post.imageUrl) ? (
           <iframe
             src={`https://www.youtube.com/embed/${getYoutubeId(post.imageUrl)}`}
@@ -152,7 +214,7 @@ export default function PostDetail() {
                   href={post.imageUrl} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="px-6 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-colors flex items-center gap-2"
+                  className={`px-6 py-3 ${themeClasses.bg} text-white rounded-xl font-bold ${themeClasses.bgHover} transition-colors flex items-center gap-2`}
                 >
                   <Maximize2 size={18} />
                   전체 파일 보기
@@ -174,7 +236,7 @@ export default function PostDetail() {
         )}
       </div>
 
-      <div className="prose prose-lg prose-green max-w-none">
+      <div className={`prose prose-lg ${themeClasses.prose} max-w-none`}>
         <div className="markdown-body">
           <ReactMarkdown
             components={{
@@ -193,7 +255,7 @@ export default function PostDetail() {
                   {...props}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-green-600 hover:underline font-bold"
+                  className={`${themeClasses.text} hover:underline font-bold`}
                 />
               )
             }}
