@@ -66,10 +66,10 @@ export default function Admin() {
     isRecommended: false
   });
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({
-    siteName: '갈매중 체육ing Aㅏ침부터 Zㅓ녁까지',
+    siteName: '갈매중은 지금 체육ing Aㅏ침부터 Zㅓ녁까지',
     primaryColor: '#16a34a',
     secondaryColor: '#ec4899',
-    heroTitle: '갈매중 체육ing\nAㅏ침부터 Zㅓ녁까지',
+    heroTitle: '갈매중은 지금 체육ing\nAㅏ침부터 Zㅓ녁까지',
     heroSubtitle: '갈매중 체육의 A to Z! 학생들의 건강한 꿈과 열정이 가득한 현장을 만나보세요.',
     footerText: '갈매중학교 학생들의 건강한 성장을 위해 아침부터 저녁까지 다양한 체육 활동을 지원하고 소통하는 공간입니다.',
     aboutImage1: 'https://storage.googleapis.com/multimodal_ai_studio/as_storage/b3ihjs7i4dlulpnvu3n4kz/67d8d263-8822-4a02-8646-068d37452d3c.png',
@@ -90,10 +90,10 @@ export default function Admin() {
     schoolAddress: '경기도 구리시 갈매순환로 123 갈매중학교 체육건강부',
     schoolPhone: '031-570-7857',
     schoolEmail: '10isjin@galmae.ms.kr',
-    seoTitle: '갈매중 체육ing Aㅏ침부터 Zㅓ녁까지',
+    seoTitle: '갈매중은 지금 체육ing Aㅏ침부터 Zㅓ녁까지',
     seoDescription: '갈매중학교 체육 활동 게시 및 학교 소개를 위한 전문적인 웹사이트입니다.',
     seoKeywords: '갈매중학교, 체육, 스포츠, 학교스포츠클럽, 런치리그',
-    seoImage: 'https://picsum.photos/seed/school/1200/630',
+    seoImage: 'https://storage.googleapis.com/multimodal_ai_studio/as_storage/b3ihjs7i4dlulpnvu3n4kz/67d8d263-8822-4a02-8646-068d37452d3c.png',
   });
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [loading, setLoading] = useState(true);
@@ -819,11 +819,11 @@ export default function Admin() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">히어로 제목</label>
-                <input
-                  type="text"
+                <textarea
+                  rows={2}
                   value={siteSettings.heroTitle}
                   onChange={e => setSiteSettings({ ...siteSettings, heroTitle: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all resize-none"
                 />
               </div>
               <div className="space-y-2">

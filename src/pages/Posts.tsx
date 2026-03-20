@@ -87,7 +87,7 @@ export default function Posts() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-sm md:text-lg text-gray-400 mx-auto leading-relaxed font-medium max-w-2xl"
+            className="text-[10px] sm:text-sm md:text-lg text-gray-400 mx-auto leading-relaxed font-medium max-w-2xl whitespace-nowrap sm:whitespace-normal"
           >
             갈매중학교 학생들의 생생한 체육 활동 현장을 사진으로 만나보세요.
           </motion.p>
@@ -139,14 +139,20 @@ export default function Posts() {
           {/* Search */}
           <div className="flex justify-center mb-12">
             <div className="relative w-full max-w-xl">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input
-                type="text"
-                placeholder="GALLERY에서 검색..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-base shadow-sm"
-              />
+              <div className="flex items-center space-x-2 mb-3">
+                <Search size={16} className="text-green-600" />
+                <span className="text-sm font-black text-gray-900 uppercase tracking-wider">GALLERY 검색</span>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="GALLERY에서 검색..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-base shadow-sm"
+                />
+              </div>
             </div>
           </div>
 

@@ -6,13 +6,16 @@ import { Post } from '../types';
 import { getDirectImageUrl, getYoutubeId } from '../imageUtils';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Calendar, User, ArrowLeft, Share2, Tag } from 'lucide-react';
+import { Calendar, User, ArrowLeft, Share2, Tag, X, Maximize2, FileText } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 export default function PostDetail() {
   const { id } = useParams<{ id: string }>();
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [modalImageUrl, setModalImageUrl] = useState('');
+  const [imageError, setImageError] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -61,6 +64,29 @@ export default function PostDetail() {
     ? format(post.createdAt.toDate(), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })
     : '날짜 정보 없음';
 
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: post.title,
+          text: post.content.substring(0, 100),
+          url: window.location.href,
+        });
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Error sharing:', error);
+        }
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        alert('링크가 클립보드에 복사되었습니다.');
+      } catch (err) {
+        console.error('Failed to copy: ', err);
+      }
+    }
+  };
+
   return (
     <article className="max-w-4xl mx-auto px-4 py-16 md:py-24">
       <button 
@@ -84,14 +110,17 @@ export default function PostDetail() {
             <User size={18} className="text-green-500" />
             <span className="font-medium text-gray-600">{post.authorName || '선생님'}</span>
           </div>
-          <button className="ml-auto flex items-center space-x-2 text-gray-400 hover:text-green-600 transition-colors">
+          <button 
+            onClick={handleShare}
+            className="ml-auto flex items-center space-x-2 text-gray-400 hover:text-green-600 transition-colors"
+          >
             <Share2 size={18} />
             <span className="text-xs font-bold">공유하기</span>
           </button>
         </div>
       </header>
 
-      <div className="aspect-video rounded-[40px] overflow-hidden mb-12 shadow-2xl shadow-green-500/10">
+      <div className="relative group aspect-video rounded-[40px] overflow-hidden mb-12 shadow-2xl shadow-green-500/10">
         {getYoutubeId(post.imageUrl) ? (
           <iframe
             src={`https://www.youtube.com/embed/${getYoutubeId(post.imageUrl)}`}
@@ -102,20 +131,101 @@ export default function PostDetail() {
             allowFullScreen
           />
         ) : (
-          <img 
-            src={getDirectImageUrl(post.imageUrl) || `https://picsum.photos/seed/${post.id}/1200/675`} 
-            alt={post.title}
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
+          <>
+            {!imageError ? (
+              <img 
+                src={getDirectImageUrl(post.imageUrl) || `https://picsum.photos/seed/${post.id}/1200/675`} 
+                alt={post.title}
+                className="w-full h-full object-cover cursor-zoom-in"
+                referrerPolicy="no-referrer"
+                onError={() => setImageError(true)}
+                onClick={() => {
+                  setModalImageUrl(getDirectImageUrl(post.imageUrl) || `https://picsum.photos/seed/${post.id}/1200/675`);
+                  setIsImageModalOpen(true);
+                }}
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 text-gray-400 p-8 text-center">
+                <FileText size={64} className="mb-4 opacity-20" />
+                <p className="text-lg font-medium mb-4">이미지를 불러올 수 없거나 문서 파일입니다.</p>
+                <a 
+                  href={post.imageUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="px-6 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-colors flex items-center gap-2"
+                >
+                  <Maximize2 size={18} />
+                  전체 파일 보기
+                </a>
+              </div>
+            )}
+            {!imageError && (
+              <button 
+                onClick={() => {
+                  setModalImageUrl(getDirectImageUrl(post.imageUrl) || `https://picsum.photos/seed/${post.id}/1200/675`);
+                  setIsImageModalOpen(true);
+                }}
+                className="absolute bottom-6 right-6 w-12 h-12 bg-white/90 backdrop-blur-sm rounded-2xl flex items-center justify-center text-gray-900 shadow-xl opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
+              >
+                <Maximize2 size={20} />
+              </button>
+            )}
+          </>
         )}
       </div>
 
       <div className="prose prose-lg prose-green max-w-none">
         <div className="markdown-body">
-          <ReactMarkdown>{post.content}</ReactMarkdown>
+          <ReactMarkdown
+            components={{
+              img: ({ node, ...props }) => (
+                <img
+                  {...props}
+                  className="rounded-2xl cursor-zoom-in hover:opacity-90 transition-opacity"
+                  onClick={() => {
+                    setModalImageUrl(props.src || '');
+                    setIsImageModalOpen(true);
+                  }}
+                />
+              ),
+              a: ({ node, ...props }) => (
+                <a
+                  {...props}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-green-600 hover:underline font-bold"
+                />
+              )
+            }}
+          >
+            {post.content}
+          </ReactMarkdown>
         </div>
       </div>
+
+      {/* Image Modal */}
+      {isImageModalOpen && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 md:p-12 cursor-zoom-out"
+          onClick={() => setIsImageModalOpen(false)}
+        >
+          <img 
+            src={modalImageUrl} 
+            alt={post.title}
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+            referrerPolicy="no-referrer"
+          />
+          <button 
+            className="absolute top-8 right-8 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-all"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsImageModalOpen(false);
+            }}
+          >
+            <X size={32} />
+          </button>
+        </div>
+      )}
       
       <div className="mt-24 pt-12 border-t border-gray-100 flex justify-between items-center">
         <div className="flex items-center space-x-4">

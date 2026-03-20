@@ -76,7 +76,7 @@ export default function News() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-sm md:text-lg text-gray-400 mx-auto leading-relaxed font-medium max-w-2xl"
+            className="text-[10px] sm:text-sm md:text-lg text-gray-400 mx-auto leading-relaxed font-medium max-w-2xl whitespace-nowrap sm:whitespace-normal"
           >
             갈매중학교 체육관련 최신 뉴스(NEWS)와 공지사항을 전해드립니다.
           </motion.p>
@@ -124,39 +124,49 @@ export default function News() {
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-12">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
           <div className="relative w-full md:w-auto">
-            <div className="flex items-center space-x-2 overflow-x-auto pb-4 w-full md:w-auto no-scrollbar snap-x snap-mandatory scroll-smooth">
+            <div className="flex items-center space-x-2 mb-3">
+              <Filter size={16} className="text-green-600" />
+              <span className="text-sm font-black text-gray-900 uppercase tracking-wider">카테고리 선택</span>
+            </div>
+            <div className="flex items-center space-x-3 overflow-x-auto pb-6 w-full md:w-auto no-scrollbar snap-x snap-mandatory scroll-smooth">
               {categories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.id)}
                   className={clsx(
-                    "px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all border snap-start",
+                    "px-6 py-3 rounded-2xl text-sm font-black whitespace-nowrap transition-all border snap-start",
                     activeCategory === cat.id 
-                      ? "bg-green-600 text-white border-green-600 shadow-lg shadow-green-600/20" 
-                      : "bg-white text-gray-500 border-gray-200 hover:border-green-200 hover:text-green-600"
+                      ? "bg-green-600 text-white border-green-600 shadow-2xl shadow-green-600/40 scale-110 z-10" 
+                      : "bg-white text-gray-700 border-gray-200 hover:border-green-500 hover:text-green-600 shadow-md"
                   )}
                 >
                   {cat.name}
                 </button>
               ))}
               {/* Extra space at the end for better scrolling feel */}
-              <div className="min-w-[20px] h-1 md:hidden" />
+              <div className="min-w-[40px] h-1 md:hidden" />
             </div>
             {/* Mobile-only fade indicator */}
-            <div className="absolute right-0 top-0 bottom-4 w-12 bg-gradient-to-l from-white to-transparent pointer-events-none md:hidden" />
+            <div className="absolute right-0 top-10 bottom-6 w-16 bg-gradient-to-l from-white to-transparent pointer-events-none md:hidden" />
           </div>
 
           <div className="relative w-full md:w-80">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input
-              type="text"
-              placeholder="검색어를 입력하세요..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm"
-            />
+            <div className="flex items-center space-x-2 mb-3">
+              <Search size={16} className="text-green-600" />
+              <span className="text-sm font-black text-gray-900 uppercase tracking-wider">검색</span>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="text"
+                placeholder="검색어를 입력하세요..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm shadow-sm"
+              />
+            </div>
           </div>
         </div>
 

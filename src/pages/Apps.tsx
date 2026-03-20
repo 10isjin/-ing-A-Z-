@@ -156,9 +156,10 @@ export default function Apps() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-4xl md:text-5xl font-black text-gray-900 mb-6 tracking-tight"
+            className="text-3xl md:text-5xl font-black text-gray-900 mb-6 tracking-tight flex flex-col items-center md:flex-row md:justify-center md:gap-3"
           >
-            자기주도 학습을 위한 <span className="text-blue-600">체육 앱 추천</span>
+            <span className="whitespace-nowrap">자기주도 학습을 위한</span>
+            <span className="text-blue-600 whitespace-nowrap">체육 앱 추천</span>
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}

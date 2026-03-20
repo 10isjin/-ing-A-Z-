@@ -13,10 +13,10 @@ export default function Home() {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [displayHighlights, setDisplayHighlights] = useState<Highlight[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({
-    siteName: '갈매중 체육ing Aㅏ침부터 Zㅓ녁까지',
+    siteName: '갈매중은 지금 체육ing Aㅏ침부터 Zㅓ녁까지',
     primaryColor: '#16a34a',
     secondaryColor: '#ec4899',
-    heroTitle: '갈매중 체육ing\nAㅏ침부터 Zㅓ녁까지',
+    heroTitle: '갈매중은 지금 체육ing\nAㅏ침부터 Zㅓ녁까지',
     heroSubtitle: '갈매중 체육의 A to Z! 학생들의 건강한 꿈과 열정이 가득한 현장을 만나보세요.',
     footerText: '갈매중학교 학생들의 건강한 성장을 위해 아침부터 저녁까지 다양한 체육 활동을 지원하고 소통하는 공간입니다.',
     aboutImage1: '',
@@ -137,15 +137,17 @@ export default function Home() {
               <span className="tracking-wider uppercase">Live: 2026학년도 갈매중 체육 활동 진행 중</span>
             </div>
             <h1 className="text-3xl sm:text-4xl md:text-7xl font-black text-white leading-[1.2] mb-8 tracking-tighter">
-              {siteSettings.heroTitle.split('\n').map((line, i) => (
-                <React.Fragment key={i}>
+              {(siteSettings.heroTitle.includes('\n') 
+                ? siteSettings.heroTitle 
+                : siteSettings.heroTitle.replace('Aㅏ침부터 Zㅓ녁까지', '\nAㅏ침부터 Zㅓ녁까지')
+              ).split('\n').map((line, i) => (
+                <div key={i} className="block">
                   {line.split('').map((char, j) => (
-                    <span key={j} className={char === 'A' || char === 'Z' ? 'text-pink-300' : ''}>
+                    <span key={j} className={char === 'A' || char === 'Z' ? 'text-pink-400 font-black' : ''}>
                       {char}
                     </span>
                   ))}
-                  <br />
-                </React.Fragment>
+                </div>
               ))}
             </h1>
             <p className="text-sm sm:text-base text-gray-400 mb-12 leading-relaxed max-w-2xl font-medium">
@@ -205,11 +207,11 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-end mb-12">
           <div>
-            <h2 className="text-3xl font-black text-gray-900 mb-2">최신 NEWS</h2>
-            <p className="text-gray-500">갈매중학교의 생생한 체육 현장을 확인하세요.</p>
+            <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mb-2">최신 NEWS</h2>
+            <p className="text-[10px] sm:text-sm text-gray-500 whitespace-nowrap sm:whitespace-normal">갈매중학교의 생생한 체육 현장을 확인하세요.</p>
           </div>
-          <Link to="/news" className="hidden sm:flex items-center space-x-2 text-green-600 font-bold hover:underline">
-            <span>전체</span>
+          <Link to="/news" className="flex items-center space-x-2 text-green-600 font-bold hover:underline">
+            <span className="text-sm sm:text-base">전체</span>
             <ArrowRight size={18} />
           </Link>
         </div>
@@ -283,8 +285,8 @@ export default function Home() {
       {/* Activity Highlights Gallery */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-12">
-          <h2 className="text-3xl font-black text-gray-900 mb-2">활동 하이라이트</h2>
-          <p className="text-gray-500">에너지 넘치는 갈매중 학생들의 모습입니다.</p>
+          <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mb-2">활동 하이라이트</h2>
+          <p className="text-[10px] sm:text-sm text-gray-500 whitespace-nowrap sm:whitespace-normal">에너지 넘치는 갈매중 학생들의 모습입니다.</p>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {displayHighlights.length > 0 ? (
