@@ -3,8 +3,8 @@ import { Post } from '../types';
 import { getDirectImageUrl } from '../imageUtils';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Calendar, User, Tag, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Calendar, User, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface PostCardProps {
   post: Post;
@@ -35,6 +35,7 @@ const categoryColors = {
 };
 
 export default function PostCard({ post }: PostCardProps) {
+  const navigate = useNavigate();
   const formattedDate = post.createdAt?.toDate() 
     ? format(post.createdAt.toDate(), 'yyyy년 MM월 dd일', { locale: ko })
     : '날짜 정보 없음';
@@ -54,7 +55,10 @@ export default function PostCard({ post }: PostCardProps) {
       };
 
   return (
-    <div className={`group bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-xl ${themeClasses.hoverShadow} transition-all duration-300 flex flex-col h-full`}>
+    <div 
+      onClick={() => navigate(`/posts/${post.id}`)}
+      className={`group bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-xl ${themeClasses.hoverShadow} transition-all duration-300 flex flex-col h-full cursor-pointer`}
+    >
       <div className="relative aspect-video overflow-hidden">
         <img
           src={getDirectImageUrl(post.imageUrl) || `https://picsum.photos/seed/${post.id}/800/450`}
@@ -85,13 +89,10 @@ export default function PostCard({ post }: PostCardProps) {
         </p>
         
         <div className="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center">
-          <Link 
-            to={`/posts/${post.id}`}
-            className={`text-sm font-bold ${themeClasses.textAccent} flex items-center space-x-1 hover:translate-x-1 transition-transform`}
-          >
+          <div className={`text-sm font-bold ${themeClasses.textAccent} flex items-center space-x-1 group-hover:translate-x-1 transition-transform`}>
             <span>자세히 보기</span>
             <ArrowRight size={16} />
-          </Link>
+          </div>
         </div>
       </div>
     </div>
