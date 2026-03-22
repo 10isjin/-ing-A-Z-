@@ -59,11 +59,28 @@ service cloud.firestore {
       return data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
              data.content is string && data.content.size() > 0 && data.content.size() <= 10000 &&
              data.category in validCategories &&
-             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 2000));
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 2000)) &&
+             (!('likesCount' in data) || data.likesCount is int) &&
+             (!('viewCount' in data) || data.viewCount is int);
     }
 
     function isUnchanged(field) {
       return !(field in request.resource.data) || request.resource.data[field] == resource.data[field];
+    }
+
+    function isValidCounterUpdate(postId) {
+      // Case 1: View count update (anyone can increment)
+      return (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount']) &&
+              request.resource.data.viewCount == (resource.data.get('viewCount', 0) + 1)) ||
+             // Case 2: Like count update (requires auth and corresponding like doc)
+             (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount']) && 
+              isAuthenticated() &&
+              ((request.resource.data.likesCount == resource.data.get('likesCount', 0) + 1 &&
+                !exists(/databases/$(database)/documents/likes/$(request.auth.uid + "_" + postId)) &&
+                getAfter(/databases/$(database)/documents/likes/$(request.auth.uid + "_" + postId)) != null) ||
+               (request.resource.data.likesCount == resource.data.get('likesCount', 0) - 1 &&
+                exists(/databases/$(database)/documents/likes/$(request.auth.uid + "_" + postId)) &&
+                getAfter(/databases/$(database)/documents/likes/$(request.auth.uid + "_" + postId)) == null)));
     }
 
     // ===============================================================
@@ -73,10 +90,20 @@ service cloud.firestore {
     match /posts/{postId} {
       allow read: if true; // Publicly readable
       allow create: if isAdmin() && isValidPost(request.resource.data) && request.resource.data.authorId == request.auth.uid;
-      allow update: if isAdmin() && isValidPost(request.resource.data) && 
-                      (isDocOwner(resource.data) || isAdmin()) &&
-                      isUnchanged('authorId') && isUnchanged('createdAt');
+      allow update: if (isAdmin() && isValidPost(request.resource.data) && 
+                       (isDocOwner(resource.data) || isAdmin()) &&
+                       isUnchanged('authorId') && isUnchanged('createdAt')) ||
+                       isValidCounterUpdate(postId);
       allow delete: if isAdmin();
+    }
+
+    match /likes/{likeId} {
+      // likeId is {userId}_{postId}
+      allow read: if true;
+      allow create: if isAuthenticated() && 
+                      request.resource.data.userId == request.auth.uid &&
+                      likeId == request.auth.uid + '_' + request.resource.data.postId;
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
     }
 
     match /settings/global {

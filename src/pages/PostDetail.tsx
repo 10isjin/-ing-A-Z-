@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { doc, getDoc, updateDoc, increment, writeBatch, onSnapshot, setDoc, deleteDoc } from 'firebase/firestore';
+import { db, auth } from '../firebase';
 import { Post } from '../types';
 import { getDirectImageUrl, getYoutubeId } from '../imageUtils';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Calendar, User, ArrowLeft, Share2, Tag, X, Maximize2, FileText, Download } from 'lucide-react';
+import { Calendar, User, ArrowLeft, Share2, Tag, X, Maximize2, FileText, Download, ThumbsUp, Eye } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function PostDetail() {
   const { id } = useParams<{ id: string }>();
@@ -16,25 +17,94 @@ export default function PostDetail() {
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [imageError, setImageError] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchPost = async () => {
-      if (!id) return;
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+    });
+    return () => unsubscribeAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!id) return;
+
+    // Increment view count
+    const incrementView = async () => {
       try {
         const docRef = doc(db, 'posts', id);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setPost({ id: docSnap.id, ...docSnap.data() } as Post);
-        }
+        await updateDoc(docRef, {
+          viewCount: increment(1)
+        });
       } catch (error) {
-        console.error("Error fetching post:", error);
-      } finally {
-        setLoading(false);
+        console.error("Error incrementing view count:", error);
       }
     };
-    fetchPost();
+    incrementView();
+
+    // Listen for post updates
+    const unsubscribePost = onSnapshot(doc(db, 'posts', id), (docSnap) => {
+      if (docSnap.exists()) {
+        setPost({ id: docSnap.id, ...docSnap.data() } as Post);
+        setLoading(false);
+      } else {
+        setPost(null);
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribePost();
   }, [id]);
+
+  useEffect(() => {
+    if (!id || !user) {
+      setIsLiked(false);
+      return;
+    }
+
+    const likeId = `${user.uid}_${id}`;
+    const unsubscribeLike = onSnapshot(doc(db, 'likes', likeId), (docSnap) => {
+      setIsLiked(docSnap.exists());
+    });
+
+    return () => unsubscribeLike();
+  }, [id, user]);
+
+  const handleLike = async () => {
+    if (!user) {
+      alert('좋아요를 누르려면 로그인이 필요합니다.');
+      return;
+    }
+    if (!id || !post) return;
+
+    const likeId = `${user.uid}_${id}`;
+    const likeRef = doc(db, 'likes', likeId);
+    const postRef = doc(db, 'posts', id);
+    const batch = writeBatch(db);
+
+    try {
+      if (isLiked) {
+        batch.delete(likeRef);
+        batch.update(postRef, {
+          likesCount: increment(-1)
+        });
+      } else {
+        batch.set(likeRef, {
+          postId: id,
+          userId: user.uid,
+          createdAt: new Date()
+        });
+        batch.update(postRef, {
+          likesCount: increment(1)
+        });
+      }
+      await batch.commit();
+    } catch (error) {
+      console.error("Error toggling like:", error);
+    }
+  };
 
   if (loading) {
     return (
@@ -161,6 +231,16 @@ export default function PostDetail() {
             <User size={18} className={themeClasses.textLight} />
             <span className="font-medium text-gray-600">{post.authorName || '선생님'}</span>
           </div>
+          <div className="flex items-center space-x-4 border-l border-gray-100 pl-6">
+            <div className="flex items-center space-x-1">
+              <Eye size={18} className="text-gray-400" />
+              <span className="font-medium text-gray-600">{post.viewCount || 0}</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <ThumbsUp size={18} className={isLiked ? themeClasses.text : 'text-gray-400'} />
+              <span className="font-medium text-gray-600">{post.likesCount || 0}</span>
+            </div>
+          </div>
           <div className="ml-auto flex items-center space-x-4">
             <button 
               onClick={handleDownload}
@@ -236,7 +316,7 @@ export default function PostDetail() {
         )}
       </div>
 
-      <div className={`prose prose-lg ${themeClasses.prose} max-w-none`}>
+      <div className={`prose prose-lg ${themeClasses.prose} max-w-none mb-16`}>
         <div className="markdown-body">
           <ReactMarkdown
             components={{
@@ -263,6 +343,29 @@ export default function PostDetail() {
             {post.content}
           </ReactMarkdown>
         </div>
+      </div>
+
+      {/* Like Button Section */}
+      <div className="flex flex-col items-center justify-center py-12 border-y border-gray-50 mb-16">
+        <button
+          onClick={handleLike}
+          className={`group flex flex-col items-center justify-center space-y-3 p-6 rounded-[2rem] transition-all duration-300 ${
+            isLiked 
+              ? `${themeClasses.bg} text-white shadow-xl ${themeClasses.shadow} scale-110` 
+              : 'bg-gray-50 text-gray-400 hover:bg-gray-100 hover:scale-105'
+          }`}
+        >
+          <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-transform duration-500 ${isLiked ? 'bg-white/20' : 'bg-white shadow-sm'}`}>
+            <ThumbsUp size={32} className={isLiked ? 'text-white' : 'text-gray-400 group-hover:text-gray-600'} />
+          </div>
+          <span className="font-black text-lg">{post.likesCount || 0}</span>
+          <span className="text-xs font-bold uppercase tracking-widest opacity-80">
+            {isLiked ? '좋아요 취소' : '좋아요'}
+          </span>
+        </button>
+        <p className="mt-6 text-sm text-gray-400 font-medium">
+          이 활동이 유익했다면 좋아요를 눌러주세요!
+        </p>
       </div>
 
       {/* Image Modal */}

@@ -11,6 +11,8 @@ export interface Post {
   authorName?: string;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
+  likesCount?: number;
+  viewCount?: number;
 }
 
 export interface SiteSettings {

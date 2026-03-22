@@ -13,9 +13,22 @@
         "authorId": { "type": "string", "description": "UID of the teacher/admin who posted." },
         "authorName": { "type": "string", "description": "Name of the author." },
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp." },
-        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp." }
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp." },
+        "likesCount": { "type": "integer", "description": "Number of likes." },
+        "viewCount": { "type": "integer", "description": "Number of views." }
       },
       "required": ["title", "content", "category", "authorId", "createdAt"]
+    },
+    "postLike": {
+      "title": "Post Like",
+      "description": "A record of a user liking a post.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string", "description": "ID of the post." },
+        "userId": { "type": "string", "description": "UID of the user." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of the like." }
+      },
+      "required": ["postId", "userId", "createdAt"]
     },
     "siteSettings": {
       "title": "Site Settings",

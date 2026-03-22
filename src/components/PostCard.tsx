@@ -3,7 +3,7 @@ import { Post } from '../types';
 import { getDirectImageUrl } from '../imageUtils';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Calendar, User, ArrowRight } from 'lucide-react';
+import { Calendar, User, ArrowRight, ThumbsUp, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface PostCardProps {
@@ -89,6 +89,16 @@ export default function PostCard({ post }: PostCardProps) {
         </p>
         
         <div className="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center">
+          <div className="flex items-center space-x-4 text-xs text-gray-400">
+            <div className="flex items-center space-x-1">
+              <Eye size={14} />
+              <span>{post.viewCount || 0}</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <ThumbsUp size={14} />
+              <span>{post.likesCount || 0}</span>
+            </div>
+          </div>
           <div className={`text-sm font-bold ${themeClasses.textAccent} flex items-center space-x-1 group-hover:translate-x-1 transition-transform`}>
             <span>자세히 보기</span>
             <ArrowRight size={16} />
