@@ -66,6 +66,16 @@
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp." }
       },
       "required": ["imageUrl", "title", "createdAt"]
+    },
+    "visitorStats": {
+      "title": "Visitor Statistics",
+      "description": "Daily and total visitor counts.",
+      "type": "object",
+      "properties": {
+        "totalCount": { "type": "integer", "description": "Total number of visits." },
+        "todayCount": { "type": "integer", "description": "Number of visits today." },
+        "lastDate": { "type": "string", "description": "The date of the last visit (YYYY-MM-DD)." }
+      }
     }
   },
   "firestore": {
@@ -80,6 +90,10 @@
     "/highlights/{highlightId}": {
       "schema": "highlight",
       "description": "Collection of activity highlights for the home page."
+    },
+    "/analytics/visitors": {
+      "schema": "visitorStats",
+      "description": "Visitor statistics."
     }
   }
 }

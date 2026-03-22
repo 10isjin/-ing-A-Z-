@@ -8,11 +8,13 @@ import PostDetail from './pages/PostDetail';
 import Apps from './pages/Apps';
 import Admin from './pages/Admin';
 import ScrollToTop from './components/ScrollToTop';
+import VisitorTracker from './components/VisitorTracker';
 
 export default function App() {
   return (
     <Router>
       <ScrollToTop />
+      <VisitorTracker />
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />

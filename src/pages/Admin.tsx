@@ -5,7 +5,7 @@ import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapsh
 import { ref, uploadBytes, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
 import { Post, SiteSettings, Highlight, AppEntry } from '../types';
 import { getDirectImageUrl, getYoutubeId } from '../imageUtils';
-import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, LayoutDashboard, FileText, Settings, LogOut, Database, Star, Upload, Loader2, Check, Smartphone, Clock } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, LayoutDashboard, FileText, Settings, LogOut, Database, Star, Upload, Loader2, Check, Smartphone, Clock, Users, Eye } from 'lucide-react';
 
 enum OperationType {
   CREATE = 'create',
@@ -41,6 +41,7 @@ export default function Admin() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [apps, setApps] = useState<AppEntry[]>([]);
+  const [visitorStats, setVisitorStats] = useState<{ totalCount: number; todayCount: number } | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [isEditingHighlight, setIsEditingHighlight] = useState(false);
@@ -167,12 +168,21 @@ export default function Admin() {
       console.error("Error fetching apps in Admin:", error);
     });
 
+    const unsubscribeVisitors = onSnapshot(doc(db, 'analytics', 'visitors'), (docSnap) => {
+      if (docSnap.exists()) {
+        setVisitorStats(docSnap.data() as any);
+      }
+    }, (error) => {
+      console.error("Error fetching visitor stats in Admin:", error);
+    });
+
     return () => {
       unsubscribeAuth();
       unsubscribePosts();
       unsubscribeSettings();
       unsubscribeHighlights();
       unsubscribeApps();
+      unsubscribeVisitors();
     };
   }, []);
 
@@ -510,7 +520,7 @@ export default function Admin() {
       </div>
 
       {/* Statistics Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-12">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -566,6 +576,38 @@ export default function Admin() {
         >
           <div className="flex items-center space-x-4">
             <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600">
+              <Eye size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">오늘 방문자</p>
+              <p className="text-2xl font-black text-gray-900">{visitorStats?.todayCount || 0}</p>
+            </div>
+          </div>
+        </motion.div>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm"
+        >
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600">
+              <Users size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">누적 방문자</p>
+              <p className="text-2xl font-black text-gray-900">{visitorStats?.totalCount || 0}</p>
+            </div>
+          </div>
+        </motion.div>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm"
+        >
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-600">
               <Clock size={24} />
             </div>
             <div>
