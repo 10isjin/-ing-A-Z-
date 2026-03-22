@@ -64,18 +64,24 @@ export default function Home() {
 
       setDisplayHighlights(combinedHighlights.slice(0, 4));
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching posts in Home:", error);
     });
 
     const hq = query(collection(db, 'highlights'), orderBy('createdAt', 'desc'), limit(4));
     const unsubscribeHighlights = onSnapshot(hq, (snapshot) => {
       const h = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Highlight));
       setHighlights(h);
+    }, (error) => {
+      console.error("Error fetching highlights in Home:", error);
     });
 
     const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
       if (docSnap.exists()) {
         setSiteSettings(docSnap.data() as SiteSettings);
       }
+    }, (error) => {
+      console.error("Error fetching settings in Home:", error);
     });
 
     return () => {

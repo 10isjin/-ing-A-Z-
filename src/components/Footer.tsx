@@ -32,6 +32,8 @@ export default function Footer() {
       if (docSnap.exists()) {
         setSiteSettings(docSnap.data() as SiteSettings);
       }
+    }, (error) => {
+      console.error("Error fetching settings in Footer:", error);
     });
     return () => unsubscribe();
   }, []);

@@ -43,6 +43,8 @@ export default function Navbar() {
       if (docSnap.exists()) {
         setSiteSettings(docSnap.data() as SiteSettings);
       }
+    }, (error) => {
+      console.error("Error fetching settings in Navbar:", error);
     });
     return () => {
       unsubscribeAuth();

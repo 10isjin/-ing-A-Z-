@@ -41,12 +41,16 @@ export default function Posts() {
       
       setPosts(fetchedPosts);
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching posts in Posts page:", error);
     });
 
     const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
       if (docSnap.exists()) {
         setSiteSettings(docSnap.data() as SiteSettings);
       }
+    }, (error) => {
+      console.error("Error fetching settings in Posts page:", error);
     });
 
     return () => {

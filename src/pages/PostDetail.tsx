@@ -53,56 +53,84 @@ export default function PostDetail() {
         setPost(null);
         setLoading(false);
       }
+    }, (error) => {
+      console.error("Error fetching post in PostDetail:", error);
     });
 
     return () => unsubscribePost();
   }, [id]);
 
   useEffect(() => {
-    if (!id || !user) {
-      setIsLiked(false);
-      return;
+    if (!id) return;
+    
+    if (user) {
+      const likeId = `${user.uid}_${id}`;
+      const unsubscribeLike = onSnapshot(doc(db, 'likes', likeId), (docSnap) => {
+        setIsLiked(docSnap.exists());
+      }, (error) => {
+        console.error("Error fetching like in PostDetail:", error);
+      });
+      return () => unsubscribeLike();
+    } else {
+      // Check localStorage for unauthenticated likes
+      const localLikes = JSON.parse(localStorage.getItem('post_likes') || '{}');
+      setIsLiked(!!localLikes[id]);
     }
-
-    const likeId = `${user.uid}_${id}`;
-    const unsubscribeLike = onSnapshot(doc(db, 'likes', likeId), (docSnap) => {
-      setIsLiked(docSnap.exists());
-    });
-
-    return () => unsubscribeLike();
   }, [id, user]);
 
   const handleLike = async () => {
-    if (!user) {
-      alert('좋아요를 누르려면 로그인이 필요합니다.');
-      return;
-    }
     if (!id || !post) return;
 
-    const likeId = `${user.uid}_${id}`;
-    const likeRef = doc(db, 'likes', likeId);
     const postRef = doc(db, 'posts', id);
-    const batch = writeBatch(db);
 
-    try {
-      if (isLiked) {
-        batch.delete(likeRef);
-        batch.update(postRef, {
-          likesCount: increment(-1)
-        });
-      } else {
-        batch.set(likeRef, {
-          postId: id,
-          userId: user.uid,
-          createdAt: new Date()
-        });
-        batch.update(postRef, {
-          likesCount: increment(1)
-        });
+    if (user) {
+      const likeId = `${user.uid}_${id}`;
+      const likeRef = doc(db, 'likes', likeId);
+      const batch = writeBatch(db);
+
+      try {
+        if (isLiked) {
+          batch.delete(likeRef);
+          batch.update(postRef, {
+            likesCount: increment(-1)
+          });
+        } else {
+          batch.set(likeRef, {
+            postId: id,
+            userId: user.uid,
+            createdAt: new Date()
+          });
+          batch.update(postRef, {
+            likesCount: increment(1)
+          });
+        }
+        await batch.commit();
+      } catch (error) {
+        console.error("Error toggling like (auth):", error);
       }
-      await batch.commit();
-    } catch (error) {
-      console.error("Error toggling like:", error);
+    } else {
+      // Unauthenticated like logic
+      try {
+        const localLikes = JSON.parse(localStorage.getItem('post_likes') || '{}');
+        const currentlyLiked = !!localLikes[id];
+
+        if (currentlyLiked) {
+          await updateDoc(postRef, {
+            likesCount: increment(-1)
+          });
+          delete localLikes[id];
+        } else {
+          await updateDoc(postRef, {
+            likesCount: increment(1)
+          });
+          localLikes[id] = true;
+        }
+
+        localStorage.setItem('post_likes', JSON.stringify(localLikes));
+        setIsLiked(!currentlyLiked);
+      } catch (error) {
+        console.error("Error toggling like (unauth):", error);
+      }
     }
   };
 

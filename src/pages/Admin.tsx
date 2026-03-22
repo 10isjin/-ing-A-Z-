@@ -122,18 +122,24 @@ export default function Admin() {
       const fetchedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
       setPosts(fetchedPosts);
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching posts in Admin:", error);
     });
 
     const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
       if (docSnap.exists()) {
         setSiteSettings(docSnap.data() as SiteSettings);
       }
+    }, (error) => {
+      console.error("Error fetching settings in Admin:", error);
     });
 
     const hq = query(collection(db, 'highlights'), orderBy('createdAt', 'desc'));
     const unsubscribeHighlights = onSnapshot(hq, (snapshot) => {
       const fetchedHighlights = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Highlight));
       setHighlights(fetchedHighlights);
+    }, (error) => {
+      console.error("Error fetching highlights in Admin:", error);
     });
 
     const aq = query(collection(db, 'apps'), orderBy('createdAt', 'desc'));

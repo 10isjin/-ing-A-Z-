@@ -17,6 +17,8 @@ const SEO: React.FC = () => {
       if (doc.exists()) {
         setSiteSettings(doc.data() as SiteSettings);
       }
+    }, (error) => {
+      console.error("Error fetching SEO settings:", error);
     });
     return () => unsub();
   }, []);

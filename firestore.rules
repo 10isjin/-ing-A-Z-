@@ -72,15 +72,22 @@ service cloud.firestore {
       // Case 1: View count update (anyone can increment)
       return (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount']) &&
               request.resource.data.viewCount == (resource.data.get('viewCount', 0) + 1)) ||
-             // Case 2: Like count update (requires auth and corresponding like doc)
+             // Case 2: Like count update
              (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount']) && 
-              isAuthenticated() &&
-              ((request.resource.data.likesCount == resource.data.get('likesCount', 0) + 1 &&
-                !exists(/databases/$(database)/documents/likes/$(request.auth.uid + "_" + postId)) &&
-                getAfter(/databases/$(database)/documents/likes/$(request.auth.uid + "_" + postId)) != null) ||
-               (request.resource.data.likesCount == resource.data.get('likesCount', 0) - 1 &&
-                exists(/databases/$(database)/documents/likes/$(request.auth.uid + "_" + postId)) &&
-                getAfter(/databases/$(database)/documents/likes/$(request.auth.uid + "_" + postId)) == null)));
+              (
+                // Subcase 2a: Authenticated (strict tracking)
+                (isAuthenticated() &&
+                 ((request.resource.data.likesCount == resource.data.get('likesCount', 0) + 1 &&
+                   !exists(/databases/$(database)/documents/likes/$(request.auth.uid + "_" + postId)) &&
+                   getAfter(/databases/$(database)/documents/likes/$(request.auth.uid + "_" + postId)) != null) ||
+                  (request.resource.data.likesCount == resource.data.get('likesCount', 0) - 1 &&
+                   exists(/databases/$(database)/documents/likes/$(request.auth.uid + "_" + postId)) &&
+                   getAfter(/databases/$(database)/documents/likes/$(request.auth.uid + "_" + postId)) == null))) ||
+                // Subcase 2b: Unauthenticated (allow +/- 1, but less secure as requested)
+                (!isAuthenticated() && 
+                 (request.resource.data.likesCount == resource.data.get('likesCount', 0) + 1 || 
+                  (request.resource.data.likesCount == resource.data.get('likesCount', 0) - 1 && request.resource.data.likesCount >= 0)))
+              ));
     }
 
     // ===============================================================
@@ -106,7 +113,7 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
     }
 
-    match /settings/global {
+    match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();
     }

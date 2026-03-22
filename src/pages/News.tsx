@@ -40,6 +40,8 @@ export default function News() {
         
       setPosts(categoryFiltered);
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching posts in News page:", error);
     });
 
     return () => unsubscribePosts();
