@@ -648,9 +648,10 @@ export default function Admin() {
                       <div className="flex items-center space-x-2 mb-1">
                         <span className={clsx(
                           "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
-                          post.type === 'gallery' ? "bg-blue-50 text-blue-600" : "bg-orange-50 text-orange-600"
+                          post.type === 'gallery' ? "bg-blue-50 text-blue-600" : 
+                          post.type === 'notice' ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600"
                         )}>
-                          {post.type === 'gallery' ? 'GALLERY' : 'NEWS'}
+                          {post.type === 'gallery' ? 'GALLERY' : post.type === 'notice' ? 'NOTICE' : 'NEWS'}
                         </span>
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                           {post.category === 'class' ? '교과수업' : post.category === 'lunch' ? '런치리그' : post.category === 'sports_club' ? '교육장배학교스포츠' : post.category === 'festival' ? '체육대회' : post.category === 'project' ? '프로젝트' : post.category === 'health_fitness' ? '건강체력교실' : post.category === 'oasis' ? '오아시스' : post.category === 'paps' ? 'PAPS' : '인성'}
@@ -1409,6 +1410,7 @@ export default function Admin() {
                   >
                     <option value="news">NEWS</option>
                     <option value="gallery">GALLERY</option>
+                    <option value="notice">NOTICE (공지사항)</option>
                   </select>
                 </div>
                 {currentPost.type === 'news' && (

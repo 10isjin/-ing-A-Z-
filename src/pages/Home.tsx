@@ -24,13 +24,13 @@ export default function Home() {
     aboutImage3: '',
     aboutImage4: '',
     stat1Label: '활동 종목',
-    stat1Value: '12+',
+    stat1Value: '-',
     stat2Label: '참여 학생',
-    stat2Value: '450+',
+    stat2Value: '-',
     stat3Label: '만족도',
-    stat3Value: '98%',
+    stat3Value: '-',
     stat4Label: '연간 행사',
-    stat4Value: '24회'
+    stat4Value: '-'
   });
   const [loading, setLoading] = useState(true);
 
@@ -40,7 +40,7 @@ export default function Home() {
       const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
       
       // Filter latest news for the news section
-      const newsPosts = posts.filter(post => post.type === 'news').slice(0, 3);
+      const newsPosts = posts.filter(post => post.type === 'news' || post.type === 'notice').slice(0, 3);
       setLatestPosts(newsPosts);
 
       // Get latest gallery posts for automatic highlights

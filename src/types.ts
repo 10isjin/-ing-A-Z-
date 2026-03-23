@@ -5,7 +5,7 @@ export interface Post {
   title: string;
   content: string;
   category: 'class' | 'lunch' | 'sports_club' | 'festival' | 'project' | 'health_fitness' | 'oasis' | 'paps' | 'character';
-  type: 'gallery' | 'news';
+  type: 'gallery' | 'news' | 'notice';
   imageUrl?: string;
   authorId: string;
   authorName?: string;

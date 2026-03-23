@@ -9,6 +9,7 @@ import { motion } from 'motion/react';
 
 const categories = [
   { id: 'all', name: '전체' },
+  { id: 'notice', name: '공지사항' },
   { id: 'class', name: '교과수업' },
   { id: 'lunch', name: '런치리그' },
   { id: 'sports_club', name: '교육장배학교스포츠' },
@@ -32,11 +33,13 @@ export default function News() {
     const unsubscribePosts = onSnapshot(q, (snapshot) => {
       const fetchedPosts = snapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() } as Post))
-        .filter(post => post.type === 'news');
+        .filter(post => post.type === 'news' || post.type === 'notice');
       
       const categoryFiltered = activeCategory === 'all' 
         ? fetchedPosts 
-        : fetchedPosts.filter(post => post.category === activeCategory);
+        : activeCategory === 'notice'
+          ? fetchedPosts.filter(post => post.type === 'notice')
+          : fetchedPosts.filter(post => post.category === activeCategory && post.type === 'news');
         
       setPosts(categoryFiltered);
       setLoading(false);
