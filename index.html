@@ -26,6 +26,24 @@
     <title>갈매중은 지금 체육ing Aㅏ침부터 Zㅓ녁까지</title>
     <meta name="description" content="갈매중학교 체육 활동 게시 및 학교 소개를 위한 전문적인 웹사이트입니다. 아침부터 저녁까지 활기찬 학교 생활을 확인하세요." />
     <meta name="keywords" content="갈매중학교, 체육활동, 학교스포츠, 아침체육, 학교소개" />
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#020617" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="갈매중 체육ing" />
+    <link rel="apple-touch-icon" href="https://storage.googleapis.com/multimodal_ai_studio/as_storage/b3ihjs7i4dlulpnvu3n4kz/67d8d263-8822-4a02-8646-068d37452d3c.png" />
+    
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('Service Worker registered'))
+            .catch(err => console.log('Service Worker registration failed', err));
+        });
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
