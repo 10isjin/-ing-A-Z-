@@ -1,9 +1,9 @@
 import React from 'react';
 import { Post } from '../types';
-import { getDirectImageUrl } from '../imageUtils';
+import { getDirectImageUrl, isGoogleDoc, getYoutubeId } from '../imageUtils';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Calendar, User, ArrowRight, ThumbsUp, Eye } from 'lucide-react';
+import { Calendar, User, ArrowRight, ThumbsUp, Eye, FileText, Table, Presentation } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface PostCardProps {
@@ -41,18 +41,37 @@ export default function PostCard({ post }: PostCardProps) {
     : '날짜 정보 없음';
 
   const isGallery = post.type === 'gallery';
+  const isDoc = isGoogleDoc(post.imageUrl);
   
   const themeClasses = isGallery 
     ? {
         hoverShadow: 'hover:shadow-pink-500/5',
         titleHover: 'group-hover:text-pink-600',
-        textAccent: 'text-pink-600'
+        textAccent: 'text-pink-600',
+        bgAccent: 'bg-pink-50',
+        borderAccent: 'border-pink-100'
       }
     : {
         hoverShadow: 'hover:shadow-green-500/5',
         titleHover: 'group-hover:text-green-600',
-        textAccent: 'text-green-600'
+        textAccent: 'text-green-600',
+        bgAccent: 'bg-green-50',
+        borderAccent: 'border-green-100'
       };
+
+  const getDocIcon = () => {
+    if (!post.imageUrl) return <FileText size={48} />;
+    if (post.imageUrl.includes('spreadsheets')) return <Table size={48} />;
+    if (post.imageUrl.includes('presentation')) return <Presentation size={48} />;
+    return <FileText size={48} />;
+  };
+
+  const getDocLabel = () => {
+    if (!post.imageUrl) return 'Document';
+    if (post.imageUrl.includes('spreadsheets')) return 'Google Sheets';
+    if (post.imageUrl.includes('presentation')) return 'Google Slides';
+    return 'Google Docs';
+  };
 
   return (
     <div 
@@ -60,12 +79,33 @@ export default function PostCard({ post }: PostCardProps) {
       className={`group bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-xl ${themeClasses.hoverShadow} transition-all duration-300 flex flex-col h-full cursor-pointer`}
     >
       <div className="relative aspect-video overflow-hidden">
-        <img
-          src={getDirectImageUrl(post.imageUrl) || `https://picsum.photos/seed/${post.id}/800/450`}
-          alt={post.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          referrerPolicy="no-referrer"
-        />
+        {isDoc ? (
+          <div className={`w-full h-full ${themeClasses.bgAccent} flex flex-col items-center justify-center p-6 transition-colors group-hover:bg-opacity-80`}>
+            <div className={`${themeClasses.textAccent} mb-3 transform group-hover:scale-110 transition-transform duration-500`}>
+              {getDocIcon()}
+            </div>
+            <span className={`text-[10px] font-bold uppercase tracking-widest ${themeClasses.textAccent} opacity-60`}>
+              {getDocLabel()}
+            </span>
+          </div>
+        ) : (
+          <img
+            src={getDirectImageUrl(post.imageUrl) || `https://picsum.photos/seed/${post.id}/800/450`}
+            alt={post.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${post.id}/800/450`;
+            }}
+          />
+        )}
+        {getYoutubeId(post.imageUrl) && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/0 transition-colors">
+            <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center text-white shadow-lg transform group-hover:scale-110 transition-transform">
+              <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[12px] border-l-white border-b-[8px] border-b-transparent ml-1" />
+            </div>
+          </div>
+        )}
       </div>
       
       <div className="p-6 flex flex-col flex-grow">

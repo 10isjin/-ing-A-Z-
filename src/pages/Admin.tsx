@@ -5,7 +5,7 @@ import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapsh
 import { ref, uploadBytes, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
 import { Post, SiteSettings, Highlight, AppEntry } from '../types';
 import { getDirectImageUrl, getYoutubeId, isGoogleDoc, getGoogleDocEmbedUrl } from '../imageUtils';
-import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, LayoutDashboard, FileText, Settings, LogOut, Database, Star, Upload, Loader2, Check, Smartphone, Clock, Users, Eye } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, LayoutDashboard, FileText, Settings, LogOut, Database, Star, Upload, Loader2, Check, Smartphone, Clock, Users, Eye, Table, Presentation } from 'lucide-react';
 
 enum OperationType {
   CREATE = 'create',
@@ -636,13 +636,20 @@ export default function Admin() {
               {posts.map(post => (
                 <div key={post.id} className="p-6 flex items-center justify-between hover:bg-gray-50 transition-colors">
                   <div className="flex items-center space-x-4 min-w-0">
-                    <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border border-gray-100">
-                      <img 
-                        src={getDirectImageUrl(post.imageUrl) || `https://picsum.photos/seed/${post.id}/100/100`} 
-                        className="w-full h-full object-cover" 
-                        alt=""
-                        referrerPolicy="no-referrer"
-                      />
+                    <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border border-gray-100 flex items-center justify-center bg-gray-50">
+                      {isGoogleDoc(post.imageUrl) ? (
+                        <div className="text-gray-400">
+                          {post.imageUrl?.includes('spreadsheets') ? <Table size={20} /> : 
+                           post.imageUrl?.includes('presentation') ? <Presentation size={20} /> : <FileText size={20} />}
+                        </div>
+                      ) : (
+                        <img 
+                          src={getDirectImageUrl(post.imageUrl) || `https://picsum.photos/seed/${post.id}/100/100`} 
+                          className="w-full h-full object-cover" 
+                          alt=""
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center space-x-2 mb-1">
@@ -712,12 +719,30 @@ export default function Admin() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6">
               {highlights.map(h => (
                 <div key={h.id} className="group relative rounded-2xl overflow-hidden aspect-video border border-gray-100">
-                  <img 
-                    src={getDirectImageUrl(h.imageUrl)} 
-                    className="w-full h-full object-cover" 
-                    alt={h.title}
-                    referrerPolicy="no-referrer"
-                  />
+                  {isGoogleDoc(h.imageUrl) ? (
+                    <div className="w-full h-full bg-gray-50 flex flex-col items-center justify-center p-4 space-y-2">
+                      <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center">
+                        {h.imageUrl.includes('spreadsheets') ? (
+                          <Table className="text-green-600" size={20} />
+                        ) : h.imageUrl.includes('presentation') ? (
+                          <Presentation className="text-orange-500" size={20} />
+                        ) : (
+                          <FileText className="text-blue-500" size={20} />
+                        )}
+                      </div>
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-gray-400 opacity-60">
+                        {h.imageUrl.includes('spreadsheets') ? 'Google Sheets' : 
+                         h.imageUrl.includes('presentation') ? 'Google Slides' : 'Google Docs'}
+                      </span>
+                    </div>
+                  ) : (
+                    <img 
+                      src={getDirectImageUrl(h.imageUrl)} 
+                      className="w-full h-full object-cover" 
+                      alt={h.title}
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-4">
                     <p className="text-white text-sm font-bold">{h.title}</p>
                     <div className="flex justify-end space-x-2">
@@ -1326,15 +1351,33 @@ export default function Admin() {
                   {/* Image Preview */}
                   {currentHighlight.imageUrl && (
                     <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-gray-100 bg-gray-50">
-                      <img 
-                        src={getDirectImageUrl(currentHighlight.imageUrl)} 
-                        alt="Preview" 
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/800/450?grayscale';
-                        }}
-                      />
+                      {isGoogleDoc(currentHighlight.imageUrl) ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center p-6 space-y-4 bg-white">
+                          <div className="w-16 h-16 bg-gray-50 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center">
+                            {currentHighlight.imageUrl.includes('spreadsheets') ? (
+                              <Table className="text-green-600" size={32} />
+                            ) : currentHighlight.imageUrl.includes('presentation') ? (
+                              <Presentation className="text-orange-500" size={32} />
+                            ) : (
+                              <FileText className="text-blue-500" size={32} />
+                            )}
+                          </div>
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 opacity-60">
+                            {currentHighlight.imageUrl.includes('spreadsheets') ? 'Google Sheets' : 
+                             currentHighlight.imageUrl.includes('presentation') ? 'Google Slides' : 'Google Docs'}
+                          </span>
+                        </div>
+                      ) : (
+                        <img 
+                          src={getDirectImageUrl(currentHighlight.imageUrl)} 
+                          alt="Preview" 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/800/450?grayscale';
+                          }}
+                        />
+                      )}
                       <div className="absolute top-2 left-2 px-2 py-1 bg-black/50 backdrop-blur-md rounded text-[10px] font-bold text-white uppercase tracking-wider">
                         {isGoogleDoc(currentHighlight.imageUrl) ? '구글 문서' : '미리보기'}
                       </div>

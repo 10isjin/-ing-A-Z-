@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Post, SiteSettings, Highlight } from '../types';
-import { getDirectImageUrl } from '../imageUtils';
+import { isGoogleDoc, getDirectImageUrl } from '../imageUtils';
 import PostCard from '../components/PostCard';
-import { ArrowRight, Trophy, Users, Heart, Sparkles, Image as ImageIcon, Smartphone } from 'lucide-react';
+import { ArrowRight, Trophy, Users, Heart, Sparkles, Image as ImageIcon, Smartphone, FileText, Table, Presentation } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 
@@ -302,12 +302,30 @@ export default function Home() {
                 whileHover={{ scale: 1.02 }}
                 className={`relative group ${idx % 2 === 1 ? 'md:mt-8' : ''}`}
               >
-                <img 
-                  src={getDirectImageUrl(h.imageUrl)} 
-                  alt={h.title} 
-                  className="w-full h-64 object-cover rounded-3xl shadow-lg"
-                  referrerPolicy="no-referrer"
-                />
+                {isGoogleDoc(h.imageUrl) ? (
+                  <div className="w-full h-64 bg-gray-50 rounded-3xl shadow-lg border border-gray-100 flex flex-col items-center justify-center p-6 space-y-4">
+                    <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center">
+                      {h.imageUrl.includes('spreadsheets') ? (
+                        <Table className="text-green-600" size={32} />
+                      ) : h.imageUrl.includes('presentation') ? (
+                        <Presentation className="text-orange-500" size={32} />
+                      ) : (
+                        <FileText className="text-blue-500" size={32} />
+                      )}
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 opacity-60">
+                      {h.imageUrl.includes('spreadsheets') ? 'Google Sheets' : 
+                       h.imageUrl.includes('presentation') ? 'Google Slides' : 'Google Docs'}
+                    </span>
+                  </div>
+                ) : (
+                  <img 
+                    src={getDirectImageUrl(h.imageUrl)} 
+                    alt={h.title} 
+                    className="w-full h-64 object-cover rounded-3xl shadow-lg"
+                    referrerPolicy="no-referrer"
+                  />
+                )}
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl flex items-end p-6">
                   <p className="text-white font-bold text-sm">{h.title}</p>
                 </div>

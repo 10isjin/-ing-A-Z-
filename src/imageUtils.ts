@@ -14,7 +14,13 @@ export const getDirectImageUrl = (url: string | undefined): string => {
   
   if (driveIdMatch && driveIdMatch[1]) {
     const fileId = driveIdMatch[1];
-    // lh3.googleusercontent.com is generally more stable for direct embedding
+    
+    // If it's a Google Doc/Sheet/Slide, use the thumbnail endpoint for a better preview image
+    if (trimmedUrl.includes('docs.google.com') || trimmedUrl.includes('spreadsheets') || trimmedUrl.includes('presentation') || trimmedUrl.includes('document')) {
+      return `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
+    }
+
+    // lh3.googleusercontent.com is generally more stable for direct embedding of actual image files
     return `https://lh3.googleusercontent.com/d/${fileId}`;
   }
 
