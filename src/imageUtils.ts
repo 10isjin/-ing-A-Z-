@@ -37,20 +37,30 @@ export const getGoogleDocEmbedUrl = (url: string | undefined): string | null => 
   
   const fileId = driveIdMatch[1];
 
-  // Use /preview endpoint which is more reliable for shared (non-published) files
-  // and supports tabs for Sheets, pages for Docs, etc.
+  // For Spreadsheets, pubhtml is the only way to see all tabs without login
+  // It requires the user to "File > Share > Publish to web"
+  if (trimmedUrl.includes('spreadsheets')) {
+    return `https://docs.google.com/spreadsheets/d/${fileId}/pubhtml?widget=true&headers=false`;
+  } 
+  
+  // For Documents, pub?embedded=true is best for published docs
+  if (trimmedUrl.includes('document')) {
+    return `https://docs.google.com/document/d/${fileId}/pub?embedded=true`;
+  }
+
+  // For Presentations
   if (trimmedUrl.includes('presentation')) {
-    return `https://docs.google.com/presentation/d/${fileId}/preview`;
-  } else if (trimmedUrl.includes('spreadsheets')) {
-    return `https://docs.google.com/spreadsheets/d/${fileId}/preview`;
-  } else if (trimmedUrl.includes('document')) {
-    return `https://docs.google.com/document/d/${fileId}/preview`;
-  } else if (trimmedUrl.includes('forms')) {
+    return `https://docs.google.com/presentation/d/${fileId}/embed?start=false&loop=false&delayms=3000`;
+  }
+
+  // Forms
+  if (trimmedUrl.includes('forms')) {
     return `https://docs.google.com/forms/d/${fileId}/viewform?embedded=true`;
   }
 
-  // Generic Drive previewer for other drive.google.com links
-  return `https://drive.google.com/file/d/${fileId}/preview`;
+  // Fallback to preview for generic drive links or if not published
+  // Note: Spreadsheets in /preview mode often don't show tabs
+  return `https://docs.google.com/file/d/${fileId}/preview`;
 };
 
 export const isGoogleDoc = (url: string | undefined): boolean => {

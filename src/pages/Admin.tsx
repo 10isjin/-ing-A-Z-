@@ -4,7 +4,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, serverTimestamp, Timestamp, getDocFromServer } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
 import { Post, SiteSettings, Highlight, AppEntry } from '../types';
-import { getDirectImageUrl, getYoutubeId, isGoogleDoc } from '../imageUtils';
+import { getDirectImageUrl, getYoutubeId, isGoogleDoc, getGoogleDocEmbedUrl } from '../imageUtils';
 import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, LayoutDashboard, FileText, Settings, LogOut, Database, Star, Upload, Loader2, Check, Smartphone, Clock, Users, Eye } from 'lucide-react';
 
 enum OperationType {
@@ -1465,24 +1465,39 @@ export default function Admin() {
                       placeholder="이미지, 유튜브, 또는 구글 문서 URL 입력"
                       className="w-full px-4 py-2 text-sm rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
                     />
-                    <p className="text-[10px] text-gray-400 mt-1 ml-1">
-                      * 구글 시트, 프레젠테이션, 문서는 공유 링크를 넣으면 모든 페이지를 볼 수 있게 자동 변환됩니다.
-                    </p>
+                    <div className="mt-1 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                      <p className="text-[10px] text-blue-700 font-bold mb-1">
+                        💡 구글 시트(PAPS 등) 모든 탭을 보이게 하려면?
+                      </p>
+                      <p className="text-[9px] text-blue-600 leading-relaxed">
+                        1. 구글 시트에서 [파일] → [공유] → [웹에 게시] 클릭<br/>
+                        2. [게시] 버튼 누른 후 나오는 링크를 여기에 입력하세요.<br/>
+                        * 단순 공유 링크는 첫 페이지만 보일 수 있습니다.
+                      </p>
+                    </div>
                     
-                    {/* Image Preview */}
+                    {/* Image/Doc Preview */}
                     {currentPost.imageUrl && (
-                      <div className="mt-1 relative h-24 rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
-                        <img 
-                          src={getDirectImageUrl(currentPost.imageUrl)} 
-                          alt="Preview" 
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/400/200?grayscale';
-                          }}
-                        />
+                      <div className={`mt-2 relative ${isGoogleDoc(currentPost.imageUrl) ? 'h-64' : 'h-32'} rounded-xl overflow-hidden border border-gray-100 bg-gray-50`}>
+                        {isGoogleDoc(currentPost.imageUrl) ? (
+                          <iframe
+                            src={getGoogleDocEmbedUrl(currentPost.imageUrl) || ''}
+                            className="w-full h-full bg-white"
+                            frameBorder="0"
+                          />
+                        ) : (
+                          <img 
+                            src={getDirectImageUrl(currentPost.imageUrl)} 
+                            alt="Preview" 
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/400/200?grayscale';
+                            }}
+                          />
+                        )}
                         <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-black/50 backdrop-blur-md rounded text-[8px] font-bold text-white uppercase tracking-wider">
-                          {getYoutubeId(currentPost.imageUrl) ? '유튜브 썸네일' : isGoogleDoc(currentPost.imageUrl) ? '구글 문서' : '미리보기'}
+                          {getYoutubeId(currentPost.imageUrl) ? '유튜브 썸네일' : isGoogleDoc(currentPost.imageUrl) ? '구글 문서/시트' : '미리보기'}
                         </div>
                       </div>
                     )}
