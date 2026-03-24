@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, increment, writeBatch, onSnapshot, setDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { Post } from '../types';
-import { getDirectImageUrl, getYoutubeId } from '../imageUtils';
+import { getDirectImageUrl, getYoutubeId, getGoogleDocEmbedUrl, isGoogleDoc } from '../imageUtils';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Calendar, User, ArrowLeft, Share2, Tag, X, Maximize2, FileText, Download, ThumbsUp, Eye } from 'lucide-react';
@@ -290,7 +290,7 @@ export default function PostDetail() {
         </div>
       </header>
 
-      <div className={`relative group aspect-video rounded-[40px] overflow-hidden mb-12 shadow-2xl ${themeClasses.shadow}`}>
+      <div className={`relative group ${isGoogleDoc(post.imageUrl) ? 'min-h-[700px]' : 'aspect-video'} rounded-[40px] overflow-hidden mb-12 shadow-2xl ${themeClasses.shadow}`}>
         {getYoutubeId(post.imageUrl) ? (
           <iframe
             src={`https://www.youtube.com/embed/${getYoutubeId(post.imageUrl)}`}
@@ -300,6 +300,30 @@ export default function PostDetail() {
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
+        ) : isGoogleDoc(post.imageUrl) ? (
+          <div className="w-full h-full bg-white flex flex-col">
+            <div className="bg-gray-50 px-4 py-2 border-b border-gray-100 flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                <FileText size={14} className={themeClasses.text} />
+                Google Document
+              </span>
+              <a 
+                href={post.imageUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className={`text-xs font-bold ${themeClasses.text} hover:underline`}
+              >
+                새 창에서 열기
+              </a>
+            </div>
+            <iframe
+              src={getGoogleDocEmbedUrl(post.imageUrl) || post.imageUrl}
+              title={post.title}
+              className="w-full flex-grow min-h-[600px]"
+              frameBorder="0"
+              allowFullScreen
+            />
+          </div>
         ) : (
           <>
             {!imageError ? (

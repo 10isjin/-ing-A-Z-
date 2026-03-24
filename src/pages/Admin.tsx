@@ -4,7 +4,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, serverTimestamp, Timestamp, getDocFromServer } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
 import { Post, SiteSettings, Highlight, AppEntry } from '../types';
-import { getDirectImageUrl, getYoutubeId } from '../imageUtils';
+import { getDirectImageUrl, getYoutubeId, isGoogleDoc } from '../imageUtils';
 import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, LayoutDashboard, FileText, Settings, LogOut, Database, Star, Upload, Loader2, Check, Smartphone, Clock, Users, Eye } from 'lucide-react';
 
 enum OperationType {
@@ -1336,7 +1336,7 @@ export default function Admin() {
                         }}
                       />
                       <div className="absolute top-2 left-2 px-2 py-1 bg-black/50 backdrop-blur-md rounded text-[10px] font-bold text-white uppercase tracking-wider">
-                        미리보기
+                        {isGoogleDoc(currentHighlight.imageUrl) ? '구글 문서' : '미리보기'}
                       </div>
                     </div>
                   )}
@@ -1462,9 +1462,12 @@ export default function Admin() {
                       type="url"
                       value={currentPost.imageUrl}
                       onChange={e => setCurrentPost({ ...currentPost, imageUrl: e.target.value })}
-                      placeholder="이미지 또는 유튜브 URL 입력"
+                      placeholder="이미지, 유튜브, 또는 구글 문서 URL 입력"
                       className="w-full px-4 py-2 text-sm rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
                     />
+                    <p className="text-[10px] text-gray-400 mt-1 ml-1">
+                      * 구글 시트, 프레젠테이션, 문서는 공유 링크를 넣으면 모든 페이지를 볼 수 있게 자동 변환됩니다.
+                    </p>
                     
                     {/* Image Preview */}
                     {currentPost.imageUrl && (
@@ -1479,7 +1482,7 @@ export default function Admin() {
                           }}
                         />
                         <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-black/50 backdrop-blur-md rounded text-[8px] font-bold text-white uppercase tracking-wider">
-                          {getYoutubeId(currentPost.imageUrl) ? '유튜브 썸네일' : '미리보기'}
+                          {getYoutubeId(currentPost.imageUrl) ? '유튜브 썸네일' : isGoogleDoc(currentPost.imageUrl) ? '구글 문서' : '미리보기'}
                         </div>
                       </div>
                     )}

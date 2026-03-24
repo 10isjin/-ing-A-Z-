@@ -28,6 +28,39 @@ export const getDirectImageUrl = (url: string | undefined): string => {
   return trimmedUrl;
 };
 
+export const getGoogleDocEmbedUrl = (url: string | undefined): string | null => {
+  if (!url) return null;
+  const trimmedUrl = url.trim();
+
+  const driveIdMatch = trimmedUrl.match(/(?:id=|\/d\/|file\/d\/|open\?id=|docs\.google\.com\/.*?\/d\/)([\w-]{25,})[^\w-]?/);
+  if (!driveIdMatch || !driveIdMatch[1]) return null;
+  
+  const fileId = driveIdMatch[1];
+
+  if (trimmedUrl.includes('presentation')) {
+    return `https://docs.google.com/presentation/d/${fileId}/embed?start=false&loop=false&delayms=3000`;
+  } else if (trimmedUrl.includes('spreadsheets')) {
+    return `https://docs.google.com/spreadsheets/d/${fileId}/pubhtml?widget=true&headers=false`;
+  } else if (trimmedUrl.includes('document')) {
+    return `https://docs.google.com/document/d/${fileId}/pub?embedded=true`;
+  } else if (trimmedUrl.includes('forms')) {
+    return `https://docs.google.com/forms/d/${fileId}/viewform?embedded=true`;
+  }
+
+  return null;
+};
+
+export const isGoogleDoc = (url: string | undefined): boolean => {
+  if (!url) return false;
+  const trimmedUrl = url.trim();
+  return (
+    trimmedUrl.includes('docs.google.com/presentation') ||
+    trimmedUrl.includes('docs.google.com/spreadsheets') ||
+    trimmedUrl.includes('docs.google.com/document') ||
+    trimmedUrl.includes('docs.google.com/forms')
+  );
+};
+
 export const getYoutubeId = (url: string | undefined): string | null => {
   if (!url) return null;
   const trimmedUrl = url.trim();
