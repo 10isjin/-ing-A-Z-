@@ -70,4 +70,5 @@ export interface AppEntry {
   iconName: string;
   isRecommended?: boolean;
   createdAt: Timestamp;
+  likesCount?: number;
 }

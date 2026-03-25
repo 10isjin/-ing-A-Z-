@@ -150,10 +150,10 @@ export default function Admin() {
 
       // Auto-seed default apps if they don't exist
       const defaultApps = [
-        { name: '나이키 트레이닝 클럽', description: '전문 트레이너와 함께하는 다양한 홈 트레이닝 프로그램', category: '홈 트레이닝', link: 'https://www.nike.com/ntc-app', color: 'bg-black', iconName: 'Activity', isRecommended: true },
-        { name: '홈코트', description: 'AI 기술을 활용한 농구 슈팅 및 드리블 훈련 분석', category: '농구/AI', link: 'https://www.homecourt.ai/', color: 'bg-orange-600', iconName: 'Target', isRecommended: true },
-        { name: '핏데이', description: '매일매일 건강한 습관을 만들어주는 맞춤형 운동 가이드', category: '건강관리', link: 'https://www.fitday.co.kr/', color: 'bg-green-600', iconName: 'Zap', isRecommended: true },
-        { name: '런데이', description: '초보자부터 상급자까지 즐겁게 달릴 수 있는 러닝 가이드', category: '러닝', link: 'https://www.runday.co.kr/', color: 'bg-blue-600', iconName: 'Timer', isRecommended: true }
+        { name: '나이키 트레이닝 클럽', description: '전문 트레이너와 함께하는 다양한 홈 트레이닝 프로그램', category: '홈 트레이닝', link: 'https://www.nike.com/ntc-app', color: 'bg-black', iconName: 'Activity', isRecommended: true, likesCount: 0 },
+        { name: '홈코트', description: 'AI 기술을 활용한 농구 슈팅 및 드리블 훈련 분석', category: '농구/AI', link: 'https://www.homecourt.ai/', color: 'bg-orange-600', iconName: 'Target', isRecommended: true, likesCount: 0 },
+        { name: '핏데이', description: '매일매일 건강한 습관을 만들어주는 맞춤형 운동 가이드', category: '건강관리', link: 'https://www.fitday.co.kr/', color: 'bg-green-600', iconName: 'Zap', isRecommended: true, likesCount: 0 },
+        { name: '런데이', description: '초보자부터 상급자까지 즐겁게 달릴 수 있는 러닝 가이드', category: '러닝', link: 'https://www.runday.co.kr/', color: 'bg-blue-600', iconName: 'Timer', isRecommended: true, likesCount: 0 }
       ];
 
       if (fetchedApps.length === 0) {
@@ -411,6 +411,7 @@ export default function Admin() {
       } else {
         await addDoc(collection(db, 'apps'), {
           ...appData,
+          likesCount: 0,
           createdAt: serverTimestamp()
         });
       }
@@ -795,6 +796,9 @@ export default function Admin() {
                             추천됨
                           </span>
                         )}
+                        <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[8px] font-black rounded uppercase tracking-tighter">
+                          좋아요: {app.likesCount || 0}
+                        </span>
                       </div>
                       <p className="text-xs text-gray-400">{app.category}</p>
                     </div>

@@ -55,11 +55,14 @@ import {
   Hash, 
   Paperclip, 
   Edit3, 
-  Trash2 
+  Trash2,
+  ThumbsUp
 } from 'lucide-react';
-import { db } from '../firebase';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { db, auth } from '../firebase';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, increment, writeBatch, setDoc, deleteDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { AppEntry } from '../types';
+import { clsx } from 'clsx';
 
 const getIcon = (iconName: string) => {
   const props = { className: "text-white", size: 24 };
@@ -124,10 +127,16 @@ const getIcon = (iconName: string) => {
 export default function Apps() {
   const [apps, setApps] = useState<AppEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [likedApps, setLikedApps] = useState<Record<string, boolean>>({});
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+    });
+
     const q = query(collection(db, 'apps'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeApps = onSnapshot(q, (snapshot) => {
       const fetchedApps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppEntry));
       setApps(fetchedApps);
       setLoading(false);
@@ -136,8 +145,86 @@ export default function Apps() {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      unsubscribeApps();
+    };
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      // Fetch user's app likes
+      const q = query(collection(db, 'appLikes'), orderBy('createdAt', 'desc'));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const likes: Record<string, boolean> = {};
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (data.userId === user.uid) {
+            likes[data.appId] = true;
+          }
+        });
+        setLikedApps(likes);
+      });
+      return () => unsubscribe();
+    } else {
+      // Load from localStorage for unauthenticated users
+      const saved = localStorage.getItem('app_likes');
+      if (saved) {
+        setLikedApps(JSON.parse(saved));
+      }
+    }
+  }, [user]);
+
+  const handleLike = async (appId: string) => {
+    const isLiked = likedApps[appId];
+    const appRef = doc(db, 'apps', appId);
+
+    if (user) {
+      const likeId = `${user.uid}_${appId}`;
+      const likeRef = doc(db, 'appLikes', likeId);
+      const batch = writeBatch(db);
+
+      try {
+        if (isLiked) {
+          batch.delete(likeRef);
+          batch.update(appRef, {
+            likesCount: increment(-1)
+          });
+        } else {
+          batch.set(likeRef, {
+            appId,
+            userId: user.uid,
+            createdAt: new Date()
+          });
+          batch.update(appRef, {
+            likesCount: increment(1)
+          });
+        }
+        await batch.commit();
+      } catch (error) {
+        console.error("Error toggling app like (auth):", error);
+      }
+    } else {
+      try {
+        const localLikes = JSON.parse(localStorage.getItem('app_likes') || '{}');
+        if (isLiked) {
+          await updateDoc(appRef, {
+            likesCount: increment(-1)
+          });
+          delete localLikes[appId];
+        } else {
+          await updateDoc(appRef, {
+            likesCount: increment(1)
+          });
+          localLikes[appId] = true;
+        }
+        localStorage.setItem('app_likes', JSON.stringify(localLikes));
+        setLikedApps({ ...localLikes });
+      } catch (error) {
+        console.error("Error toggling app like (unauth):", error);
+      }
+    }
+  };
 
   return (
     <div className="pb-24">
@@ -223,14 +310,28 @@ export default function Apps() {
                           <p className="text-gray-500 leading-relaxed mb-6">
                             {app.description}
                           </p>
-                          <a
-                            href={app.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors"
-                          >
-                            자세히 보기 <ExternalLink size={14} className="ml-1" />
-                          </a>
+                          <div className="flex items-center justify-between mt-6">
+                            <a
+                              href={app.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors"
+                            >
+                              자세히 보기 <ExternalLink size={14} className="ml-1" />
+                            </a>
+                            <button
+                              onClick={() => app.id && handleLike(app.id)}
+                              className={clsx(
+                                "flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition-all",
+                                likedApps[app.id || ''] 
+                                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20 scale-105" 
+                                  : "bg-gray-50 text-gray-400 hover:bg-gray-100 hover:scale-105"
+                              )}
+                            >
+                              <ThumbsUp size={14} className={likedApps[app.id || ''] ? 'fill-current' : ''} />
+                              <span>{app.likesCount || 0}</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </motion.div>
@@ -241,6 +342,74 @@ export default function Apps() {
               <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
                 <p className="text-gray-400">추천된 앱이 없습니다. 관리자 페이지에서 앱을 추가해 주세요.</p>
               </div>
+            )}
+
+            {apps.some(app => !app.isRecommended) && (
+              <section>
+                <div className="flex items-center space-x-3 mb-8">
+                  <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-gray-600">
+                    <Grid size={24} />
+                  </div>
+                  <h2 className="text-2xl font-black text-gray-900 tracking-tight">기타 유용한 앱</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {apps.filter(app => !app.isRecommended).map((app, idx) => (
+                    <motion.div
+                      key={app.id || app.name}
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: idx * 0.05 }}
+                      className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all group"
+                    >
+                      <div className="flex items-start space-x-4">
+                        <div className={`w-12 h-12 ${app.color} rounded-xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform`}>
+                          {getIcon(app.iconName)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">{app.category}</span>
+                            <a
+                              href={app.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-gray-400 hover:text-blue-600 transition-colors"
+                            >
+                              <ExternalLink size={16} />
+                            </a>
+                          </div>
+                          <h3 className="text-lg font-bold text-gray-900 mb-2 truncate">{app.name}</h3>
+                          <p className="text-xs text-gray-500 line-clamp-2 mb-4">
+                            {app.description}
+                          </p>
+                          <div className="flex items-center justify-between">
+                            <a
+                              href={app.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-bold text-gray-400 hover:text-blue-600 transition-colors"
+                            >
+                              자세히 보기
+                            </a>
+                            <button
+                              onClick={() => app.id && handleLike(app.id)}
+                              className={clsx(
+                                "flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all",
+                                likedApps[app.id || ''] 
+                                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/20" 
+                                  : "bg-gray-50 text-gray-400 hover:bg-gray-100"
+                              )}
+                            >
+                              <ThumbsUp size={12} className={likedApps[app.id || ''] ? 'fill-current' : ''} />
+                              <span>{app.likesCount || 0}</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </section>
             )}
 
           </div>
