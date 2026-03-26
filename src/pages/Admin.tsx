@@ -5,7 +5,7 @@ import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapsh
 import { ref, uploadBytes, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
 import { Post, SiteSettings, Highlight, AppEntry } from '../types';
 import { getDirectImageUrl, getYoutubeId, isGoogleDoc, getGoogleDocEmbedUrl } from '../imageUtils';
-import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, LayoutDashboard, FileText, Settings, LogOut, Database, Star, Upload, Loader2, Check, Smartphone, Clock, Users, Eye, Table, Presentation } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, LayoutDashboard, FileText, Settings, LogOut, Database, Star, Upload, Loader2, Check, Smartphone, Clock, Users, Eye, Table, Presentation, Shield } from 'lucide-react';
 
 enum OperationType {
   CREATE = 'create',
@@ -31,6 +31,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
+import { processFile } from '../utils/faceBlur';
 import { motion } from 'motion/react';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
@@ -97,6 +98,9 @@ export default function Admin() {
     seoImage: 'https://storage.googleapis.com/multimodal_ai_studio/as_storage/b3ihjs7i4dlulpnvu3n4kz/67d8d263-8822-4a02-8646-068d37452d3c.png',
   });
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [autoFaceBlur, setAutoFaceBlur] = useState<boolean>(true);
+  const [isProcessingExisting, setIsProcessingExisting] = useState<boolean>(false);
+  const [processingProgress, setProcessingProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -200,24 +204,93 @@ export default function Admin() {
     );
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'post' | 'highlight') => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
+  const processExistingPhotos = async () => {
+    if (!window.confirm('기존에 업로드된 모든 사진의 얼굴을 감지하여 블러 처리를 시작하시겠습니까?\n사진이 많을 경우 시간이 다소 걸릴 수 있습니다.')) return;
 
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setAlertMessage({ 
-        title: '파일 크기 초과', 
-        message: '파일 크기가 너무 큽니다. (최대 5MB)\n큰 파일은 구글 드라이브 링크를 사용해 주세요.', 
-        type: 'error' 
-      });
-      return;
+    setIsProcessingExisting(true);
+    const itemsToProcess = [
+      ...posts.filter(p => p.imageUrl && !isGoogleDoc(p.imageUrl) && !getYoutubeId(p.imageUrl)),
+      ...highlights.filter(h => h.imageUrl && !isGoogleDoc(h.imageUrl) && !getYoutubeId(h.imageUrl))
+    ];
+
+    setProcessingProgress({ current: 0, total: itemsToProcess.length });
+
+    for (let i = 0; i < itemsToProcess.length; i++) {
+      const item = itemsToProcess[i];
+      setProcessingProgress(prev => ({ ...prev, current: i + 1 }));
+
+      try {
+        // 1. Download image
+        const response = await fetch(getDirectImageUrl(item.imageUrl) || item.imageUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `processed_${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+        // 2. Process image
+        const blurredFile = await processFile(file);
+
+        // 3. Upload image
+        const storageRef = ref(storage, `uploads/processed_${Date.now()}_${i}.jpg`);
+        const uploadResult = await uploadBytes(storageRef, blurredFile);
+        const downloadURL = await getDownloadURL(uploadResult.ref);
+
+        // 4. Update Firestore
+        const collectionName = 'content' in item ? 'posts' : 'highlights';
+        await updateDoc(doc(db, collectionName, item.id!), {
+          imageUrl: downloadURL
+        });
+
+      } catch (err) {
+        console.error(`Failed to process item ${item.id}:`, err);
+      }
     }
+
+    setIsProcessingExisting(false);
+    setAlertMessage({ 
+      title: '처리 완료', 
+      message: '기존 사진들의 얼굴 블러 처리가 완료되었습니다.', 
+      type: 'success' 
+    });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'post' | 'highlight') => {
+    let file = e.target.files?.[0];
+    if (!file || !user) return;
 
     setUploading(true);
     setUploadProgress(0);
-    
+
     try {
+      // Automatic Face Blur
+      if (autoFaceBlur && file.type.startsWith('image/')) {
+        try {
+          setAlertMessage({ 
+            title: '얼굴 인식 중', 
+            message: '초상권 보호를 위해 얼굴을 자동으로 감지하여 블러 처리하고 있습니다...', 
+            type: 'success' 
+          });
+          file = await processFile(file);
+        } catch (err) {
+          console.error("Face blur failed:", err);
+          // Continue with original file if blur fails, but notify user
+          setAlertMessage({ 
+            title: '얼굴 인식 실패', 
+            message: '얼굴 인식 과정에서 오류가 발생했습니다. 원본 파일을 업로드합니다.', 
+            type: 'error' 
+          });
+        }
+      }
+
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setAlertMessage({ 
+          title: '파일 크기 초과', 
+          message: '파일 크기가 너무 큽니다. (최대 5MB)\n큰 파일은 구글 드라이브 링크를 사용해 주세요.', 
+          type: 'error' 
+        });
+        setUploading(false);
+        return;
+      }
+
       const storageRef = ref(storage, `uploads/${Date.now()}_${file.name}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
@@ -516,6 +589,56 @@ export default function Admin() {
           >
             <Plus size={20} className="mr-2" />
             <span>새 게시글 작성</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Face Blur Toggle */}
+      <div className="mb-8 bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white">
+            <Shield size={20} />
+          </div>
+          <div>
+            <p className="font-bold text-blue-900 text-sm">자동 얼굴 블러 처리 (초상권 보호)</p>
+            <p className="text-xs text-blue-700">사진 업로드 시 AI가 자동으로 얼굴을 감지하여 블러 처리합니다.</p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-4">
+          {isProcessingExisting ? (
+            <div className="flex flex-col items-end">
+              <div className="flex items-center text-blue-600 mb-1">
+                <Loader2 size={16} className="animate-spin mr-2" />
+                <span className="text-xs font-bold">처리 중... ({processingProgress.current}/{processingProgress.total})</span>
+              </div>
+              <div className="w-32 h-1.5 bg-blue-100 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-blue-600 transition-all duration-300" 
+                  style={{ width: `${(processingProgress.current / processingProgress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={processExistingPhotos}
+              className="px-4 py-2 bg-white border border-blue-200 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-50 transition-colors shadow-sm"
+            >
+              기존 사진 모두 처리하기
+            </button>
+          )}
+          <button
+            onClick={() => setAutoFaceBlur(!autoFaceBlur)}
+            className={clsx(
+              "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
+              autoFaceBlur ? "bg-blue-600" : "bg-gray-200"
+            )}
+          >
+            <span
+              className={clsx(
+                "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                autoFaceBlur ? "translate-x-6" : "translate-x-1"
+              )}
+            />
           </button>
         </div>
       </div>
