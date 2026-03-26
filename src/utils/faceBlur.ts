@@ -1,5 +1,4 @@
-import * as tf from '@tensorflow/tfjs-core';
-import '@tensorflow/tfjs-backend-webgl';
+import * as tf from '@tensorflow/tfjs';
 import * as faceDetection from '@tensorflow-models/face-detection';
 
 let detector: faceDetection.FaceDetector | null = null;
@@ -7,7 +6,21 @@ let detector: faceDetection.FaceDetector | null = null;
 export async function initDetector() {
   if (detector) return detector;
   
-  await tf.ready();
+  try {
+    await tf.ready();
+    // Explicitly set backend to webgl for better performance/compatibility in browser
+    if (tf.getBackend() !== 'webgl') {
+      try {
+        await tf.setBackend('webgl');
+      } catch (e) {
+        console.warn("WebGL backend failed, falling back to CPU", e);
+        await tf.setBackend('cpu');
+      }
+    }
+  } catch (e) {
+    console.error("TFJS initialization failed:", e);
+  }
+
   const model = faceDetection.SupportedModels.MediaPipeFaceDetector;
   const detectorConfig: faceDetection.MediaPipeFaceDetectorTfjsModelConfig = {
     runtime: 'tfjs',
@@ -19,66 +32,72 @@ export async function initDetector() {
   return detector;
 }
 
-export async function blurFaces(imageElement: HTMLImageElement | HTMLCanvasElement): Promise<{ canvas: HTMLCanvasElement; facesCount: number }> {
+export async function blurFaces(imageElement: HTMLImageElement): Promise<{ canvas: HTMLCanvasElement; facesCount: number }> {
   const det = await initDetector();
+  
+  // Use natural dimensions for accuracy
+  const width = imageElement.naturalWidth || imageElement.width;
+  const height = imageElement.naturalHeight || imageElement.height;
+  
+  console.log(`Detecting faces in ${width}x${height} image...`);
   const faces = await det.estimateFaces(imageElement);
+  console.log(`Detected ${faces.length} faces`);
   
   const canvas = document.createElement('canvas');
-  canvas.width = imageElement.width;
-  canvas.height = imageElement.height;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext('2d');
   
   if (!ctx) throw new Error('Could not get canvas context');
   
   // Draw original image
-  ctx.drawImage(imageElement, 0, 0);
+  ctx.drawImage(imageElement, 0, 0, width, height);
   
   // Blur each face
   for (const face of faces) {
-    const { xMin, yMin, width, height } = face.box;
+    const { xMin, yMin, width: fWidth, height: fHeight } = face.box;
     
-    // Add 35% padding to the face box to ensure full coverage (hair, chin, etc)
-    const padding = 0.35;
-    const x = Math.max(0, xMin - width * padding);
-    const y = Math.max(0, yMin - height * padding);
-    const w = Math.min(imageElement.width - x, width * (1 + padding * 2));
-    const h = Math.min(imageElement.height - y, height * (1 + padding * 2));
+    // Add 40% padding to the face box to ensure full coverage
+    const padding = 0.4;
+    const x = Math.floor(Math.max(0, xMin - fWidth * padding));
+    const y = Math.floor(Math.max(0, yMin - fHeight * padding));
+    const w = Math.floor(Math.min(width - x, fWidth * (1 + padding * 2)));
+    const h = Math.floor(Math.min(height - y, fHeight * (1 + padding * 2)));
     
-    // 1. Create a temporary canvas for the face area
-    const faceCanvas = document.createElement('canvas');
-    faceCanvas.width = w;
-    faceCanvas.height = h;
-    const faceCtx = faceCanvas.getContext('2d');
+    console.log(`Blurring face at [${x}, ${y}, ${w}, ${h}]`);
+
+    // 1. Apply Mosaic (Very robust method)
+    ctx.save();
     
-    if (faceCtx) {
-      faceCtx.drawImage(imageElement, x, y, w, h, 0, 0, w, h);
-      
-      // 2. Apply Mosaic + Blur
-      ctx.save();
-      
-      // Create a path for the face (ellipse is better for faces)
-      ctx.beginPath();
-      ctx.ellipse(x + w/2, y + h/2, w/2, h/2, 0, 0, Math.PI * 2);
-      ctx.clip();
-      
-      // Mosaic: draw very small then scale up with smoothing disabled
-      const mosaicScale = 0.03; // Even more pixelated
-      const smallCanvas = document.createElement('canvas');
-      smallCanvas.width = Math.max(1, w * mosaicScale);
-      smallCanvas.height = Math.max(1, h * mosaicScale);
-      const smallCtx = smallCanvas.getContext('2d');
-      
-      if (smallCtx) {
-        smallCtx.imageSmoothingEnabled = false;
-        smallCtx.drawImage(faceCanvas, 0, 0, w, h, 0, 0, smallCanvas.width, smallCanvas.height);
+    // Create a path for the face (ellipse is better for faces)
+    ctx.beginPath();
+    ctx.ellipse(x + w/2, y + h/2, w/2, h/2, 0, 0, Math.PI * 2);
+    ctx.clip();
+    
+    // Mosaic: draw 1x1 pixels scaled up to block size
+    // We use a fixed block size relative to face size to ensure it's always visible
+    const blockSize = Math.max(8, Math.floor(w / 8)); 
+    
+    // Disable smoothing for mosaic effect
+    ctx.imageSmoothingEnabled = false;
+    
+    // Manual mosaic to ensure it works even if filters fail
+    for (let py = 0; py < h; py += blockSize) {
+      for (let px = 0; px < w; px += blockSize) {
+        // Get the color of the center pixel of this block
+        const sourceX = Math.floor(x + px + blockSize / 2);
+        const sourceY = Math.floor(y + py + blockSize / 2);
         
-        ctx.imageSmoothingEnabled = false;
-        ctx.filter = 'blur(15px)'; // Combine mosaic with blur
-        ctx.drawImage(smallCanvas, 0, 0, smallCanvas.width, smallCanvas.height, x, y, w, h);
+        // Draw a 1x1 area from original image to a blockSize x blockSize area on canvas
+        ctx.drawImage(imageElement, sourceX, sourceY, 1, 1, x + px, y + py, blockSize, blockSize);
       }
-      
-      ctx.restore();
     }
+    
+    // 2. Add a semi-transparent dark overlay to make it even more obscured
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.fill();
+    
+    ctx.restore();
   }
   
   return { canvas, facesCount: faces.length };
@@ -89,17 +108,18 @@ export async function processFile(file: File): Promise<{ file: File; facesCount:
     const reader = new FileReader();
     reader.onload = async (e) => {
       const img = new Image();
+      img.crossOrigin = "anonymous"; // Handle potential CORS issues
       img.onload = async () => {
         try {
           const { canvas, facesCount } = await blurFaces(img);
           canvas.toBlob((blob) => {
             if (blob) {
-              const blurredFile = new File([blob], file.name, { type: file.type });
+              const blurredFile = new File([blob], file.name, { type: 'image/jpeg' }); // Force jpeg for consistency
               resolve({ file: blurredFile, facesCount });
             } else {
               reject(new Error('Canvas to Blob failed'));
             }
-          }, file.type);
+          }, 'image/jpeg', 0.85); // Quality 0.85
         } catch (err) {
           reject(err);
         }

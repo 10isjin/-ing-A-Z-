@@ -266,31 +266,34 @@ export default function Admin() {
         try {
           setAlertMessage({ 
             title: '얼굴 인식 중', 
-            message: '초상권 보호를 위해 얼굴을 자동으로 감지하여 블러 처리하고 있습니다...', 
+            message: '초상권 보호를 위해 AI가 얼굴을 감지하고 있습니다. 잠시만 기다려 주세요...', 
             type: 'success' 
           });
+          
+          console.log("Processing file for face blur:", file.name);
           const result = await processFile(file);
+          console.log("Face blur result:", result);
+          
           file = result.file;
           
           if (result.facesCount === 0) {
             setAlertMessage({ 
               title: '얼굴 감지 안됨', 
-              message: '사진에서 얼굴을 찾지 못했습니다. 수동으로 확인해 주세요.', 
+              message: '사진에서 얼굴을 찾지 못했습니다. 얼굴이 너무 작거나 가려져 있을 수 있습니다. 수동으로 확인해 주세요.', 
               type: 'error' 
             });
           } else {
             setAlertMessage({ 
               title: '얼굴 블러 완료', 
-              message: `${result.facesCount}개의 얼굴을 감지하여 블러 처리했습니다.`, 
+              message: `${result.facesCount}개의 얼굴을 감지하여 강력한 모자이크 처리를 완료했습니다.`, 
               type: 'success' 
             });
           }
         } catch (err) {
           console.error("Face blur failed:", err);
-          // Continue with original file if blur fails, but notify user
           setAlertMessage({ 
-            title: '얼굴 인식 실패', 
-            message: '얼굴 인식 과정에서 오류가 발생했습니다. 원본 파일을 업로드합니다.', 
+            title: '얼굴 인식 오류', 
+            message: `얼굴 인식 과정에서 오류가 발생했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`, 
             type: 'error' 
           });
         }
