@@ -6,7 +6,7 @@ import { Post } from '../types';
 import { getDirectImageUrl, getYoutubeId, getGoogleDocEmbedUrl, isGoogleDoc } from '../imageUtils';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Calendar, User, ArrowLeft, Share2, Tag, X, Maximize2, FileText, Download, ThumbsUp, Eye } from 'lucide-react';
+import { Calendar, User, ArrowLeft, Share2, Tag, X, Maximize2, FileText, Download, ThumbsUp, Eye, ClipboardList } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -216,6 +216,8 @@ export default function PostDetail() {
   };
 
   const isGallery = post.type === 'gallery';
+  const isSurvey = post.type === 'survey';
+  
   const themeClasses = isGallery 
     ? {
         text: 'text-pink-600',
@@ -225,6 +227,16 @@ export default function PostDetail() {
         bgHover: 'hover:bg-pink-700',
         shadow: 'shadow-pink-500/10',
         prose: 'prose-pink'
+      }
+    : isSurvey
+    ? {
+        text: 'text-indigo-600',
+        textLight: 'text-indigo-500',
+        hoverText: 'hover:text-indigo-600',
+        bg: 'bg-indigo-600',
+        bgHover: 'hover:bg-indigo-700',
+        shadow: 'shadow-indigo-500/10',
+        prose: 'prose-indigo'
       }
     : {
         text: 'text-green-600',
@@ -304,8 +316,17 @@ export default function PostDetail() {
           <div className="w-full h-full bg-white flex flex-col">
             <div className="bg-gray-50 px-4 py-2 border-b border-gray-100 flex items-center justify-between">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                <FileText size={14} className={themeClasses.text} />
-                Google Document
+                {post.imageUrl?.includes('forms') || post.imageUrl?.includes('forms.gle') ? (
+                  <>
+                    <ClipboardList size={14} className={themeClasses.text} />
+                    Google Form
+                  </>
+                ) : (
+                  <>
+                    <FileText size={14} className={themeClasses.text} />
+                    Google Document
+                  </>
+                )}
               </span>
               <a 
                 href={post.imageUrl} 

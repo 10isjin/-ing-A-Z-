@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Post, SiteSettings, Highlight } from '../types';
+import { Post, SiteSettings, Highlight, Survey } from '../types';
 import { isGoogleDoc, getDirectImageUrl } from '../imageUtils';
 import PostCard from '../components/PostCard';
-import { ArrowRight, Trophy, Users, Heart, Sparkles, Image as ImageIcon, Smartphone, FileText, Table, Presentation } from 'lucide-react';
+import { ArrowRight, Trophy, Users, Heart, Sparkles, Image as ImageIcon, Smartphone, FileText, Table, Presentation, ClipboardList } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 
@@ -12,6 +12,7 @@ export default function Home() {
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [displayHighlights, setDisplayHighlights] = useState<Highlight[]>([]);
+  const [surveys, setSurveys] = useState<Survey[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({
     siteName: '갈매중은 지금 체육ing Aㅏ침부터 Zㅓ녁까지',
     primaryColor: '#16a34a',
@@ -84,10 +85,21 @@ export default function Home() {
       console.error("Error fetching settings in Home:", error);
     });
 
+    const sq = query(collection(db, 'surveys'), orderBy('createdAt', 'desc'));
+    const unsubscribeSurveys = onSnapshot(sq, (snapshot) => {
+      const s = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Survey))
+        .filter(survey => survey.isActive);
+      setSurveys(s);
+    }, (error) => {
+      console.error("Error fetching surveys in Home:", error);
+    });
+
     return () => {
       unsubscribePosts();
       unsubscribeHighlights();
       unsubscribeSettings();
+      unsubscribeSurveys();
     };
   }, []);
 
@@ -287,6 +299,40 @@ export default function Home() {
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
         </motion.div>
       </section>
+
+      {/* Surveys Section */}
+      {surveys.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-12">
+            <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mb-2">설문조사 참여</h2>
+            <p className="text-[10px] sm:text-sm text-gray-500 whitespace-nowrap sm:whitespace-normal">갈매중학교 체육 활동 발전을 위해 여러분의 의견을 들려주세요.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {surveys.map(survey => (
+              <motion.a
+                key={survey.id}
+                href={survey.formUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                whileHover={{ y: -5 }}
+                className="group bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all flex items-start space-x-6"
+              >
+                <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-shrink-0">
+                  <ClipboardList size={32} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">{survey.title}</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed mb-4 line-clamp-2">{survey.description}</p>
+                  <div className="flex items-center text-indigo-600 font-bold text-sm">
+                    <span>설문 참여하기</span>
+                    <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </motion.a>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Activity Highlights Gallery */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

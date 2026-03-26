@@ -3,7 +3,7 @@ import { Post } from '../types';
 import { getDirectImageUrl, isGoogleDoc, getYoutubeId } from '../imageUtils';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Calendar, User, ArrowRight, ThumbsUp, Eye, FileText, Table, Presentation } from 'lucide-react';
+import { Calendar, User, ArrowRight, ThumbsUp, Eye, FileText, Table, Presentation, ClipboardList } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface PostCardProps {
@@ -41,6 +41,7 @@ export default function PostCard({ post }: PostCardProps) {
     : '날짜 정보 없음';
 
   const isGallery = post.type === 'gallery';
+  const isSurvey = post.type === 'survey';
   const isDoc = isGoogleDoc(post.imageUrl);
   
   const themeClasses = isGallery 
@@ -50,6 +51,14 @@ export default function PostCard({ post }: PostCardProps) {
         textAccent: 'text-pink-600',
         bgAccent: 'bg-pink-50',
         borderAccent: 'border-pink-100'
+      }
+    : isSurvey
+    ? {
+        hoverShadow: 'hover:shadow-indigo-500/5',
+        titleHover: 'group-hover:text-indigo-600',
+        textAccent: 'text-indigo-600',
+        bgAccent: 'bg-indigo-50',
+        borderAccent: 'border-indigo-100'
       }
     : {
         hoverShadow: 'hover:shadow-green-500/5',
@@ -61,6 +70,7 @@ export default function PostCard({ post }: PostCardProps) {
 
   const getDocIcon = () => {
     if (!post.imageUrl) return <FileText size={48} />;
+    if (post.imageUrl.includes('forms') || post.imageUrl.includes('forms.gle')) return <ClipboardList size={48} />;
     if (post.imageUrl.includes('spreadsheets')) return <Table size={48} />;
     if (post.imageUrl.includes('presentation')) return <Presentation size={48} />;
     return <FileText size={48} />;
@@ -68,6 +78,7 @@ export default function PostCard({ post }: PostCardProps) {
 
   const getDocLabel = () => {
     if (!post.imageUrl) return 'Document';
+    if (post.imageUrl.includes('forms') || post.imageUrl.includes('forms.gle')) return 'Google Forms';
     if (post.imageUrl.includes('spreadsheets')) return 'Google Sheets';
     if (post.imageUrl.includes('presentation')) return 'Google Slides';
     return 'Google Docs';

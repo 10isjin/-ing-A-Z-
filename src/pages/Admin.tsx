@@ -3,9 +3,9 @@ import { auth, db, storage } from '../firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, serverTimestamp, Timestamp, getDocFromServer } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
-import { Post, SiteSettings, Highlight, AppEntry } from '../types';
+import { Post, SiteSettings, Highlight, AppEntry, Survey } from '../types';
 import { getDirectImageUrl, getYoutubeId, isGoogleDoc, getGoogleDocEmbedUrl } from '../imageUtils';
-import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, LayoutDashboard, FileText, Settings, LogOut, Database, Star, Upload, Loader2, Check, Smartphone, Clock, Users, Eye, Table, Presentation, Shield } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, LayoutDashboard, FileText, Settings, LogOut, Database, Star, Upload, Loader2, Check, Smartphone, Clock, Users, Eye, Table, Presentation, Shield, ClipboardList } from 'lucide-react';
 
 enum OperationType {
   CREATE = 'create',
@@ -42,11 +42,13 @@ export default function Admin() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [apps, setApps] = useState<AppEntry[]>([]);
+  const [surveys, setSurveys] = useState<Survey[]>([]);
   const [visitorStats, setVisitorStats] = useState<{ totalCount: number; todayCount: number } | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [isEditingHighlight, setIsEditingHighlight] = useState(false);
   const [isEditingApp, setIsEditingApp] = useState(false);
+  const [isEditingSurvey, setIsEditingSurvey] = useState(false);
   const [currentPost, setCurrentPost] = useState<Partial<Post>>({
     title: '',
     content: '',
@@ -66,6 +68,12 @@ export default function Admin() {
     color: 'bg-blue-600',
     iconName: 'Activity',
     isRecommended: false
+  });
+  const [currentSurvey, setCurrentSurvey] = useState<Partial<Survey>>({
+    title: '',
+    description: '',
+    formUrl: '',
+    isActive: true
   });
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({
     siteName: '갈매중은 지금 체육ing Aㅏ침부터 Zㅓ녁까지',
@@ -105,7 +113,7 @@ export default function Admin() {
   const [uploading, setUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [isDeleting, setIsDeleting] = useState<{ id: string, type: 'post' | 'highlight' | 'app' } | null>(null);
+  const [isDeleting, setIsDeleting] = useState<{ id: string, type: 'post' | 'highlight' | 'app' | 'survey' } | null>(null);
   const [alertMessage, setAlertMessage] = useState<{ title: string, message: string, type: 'success' | 'error' } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{
     title: string;
@@ -180,6 +188,14 @@ export default function Admin() {
       console.error("Error fetching visitor stats in Admin:", error);
     });
 
+    const sq = query(collection(db, 'surveys'), orderBy('createdAt', 'desc'));
+    const unsubscribeSurveys = onSnapshot(sq, (snapshot) => {
+      const fetchedSurveys = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Survey));
+      setSurveys(fetchedSurveys);
+    }, (error) => {
+      console.error("Error fetching surveys in Admin:", error);
+    });
+
     return () => {
       unsubscribeAuth();
       unsubscribePosts();
@@ -187,6 +203,7 @@ export default function Admin() {
       unsubscribeHighlights();
       unsubscribeApps();
       unsubscribeVisitors();
+      unsubscribeSurveys();
     };
   }, []);
 
@@ -399,11 +416,16 @@ export default function Admin() {
     }
   };
 
-  const handleDelete = async (id: string, type: 'post' | 'highlight' | 'app') => {
-    const path = `${type === 'post' ? 'posts' : type === 'highlight' ? 'highlights' : 'apps'}/${id}`;
+  const handleDelete = async (id: string, type: 'post' | 'highlight' | 'app' | 'survey') => {
+    const collectionName = type === 'post' ? 'posts' : type === 'highlight' ? 'highlights' : type === 'app' ? 'apps' : 'surveys';
+    const path = `${collectionName}/${id}`;
     try {
-      await deleteDoc(doc(db, type === 'post' ? 'posts' : type === 'highlight' ? 'highlights' : 'apps', id));
-      setAlertMessage({ title: '삭제 완료', message: `${type === 'post' ? '게시글' : type === 'highlight' ? '하이라이트' : '앱 정보'}이(가) 성공적으로 삭제되었습니다.`, type: 'success' });
+      await deleteDoc(doc(db, collectionName, id));
+      setAlertMessage({ 
+        title: '삭제 완료', 
+        message: `${type === 'post' ? '게시글' : type === 'highlight' ? '하이라이트' : type === 'app' ? '앱 정보' : '설문조사'}이(가) 성공적으로 삭제되었습니다.`, 
+        type: 'success' 
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
     } finally {
@@ -471,18 +493,6 @@ export default function Admin() {
     }
   };
 
-  const handleDeleteHighlight = async (id: string) => {
-    const path = `highlights/${id}`;
-    try {
-      await deleteDoc(doc(db, 'highlights', id));
-      setAlertMessage({ title: '삭제 완료', message: '하이라이트가 삭제되었습니다.', type: 'success' });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, path);
-    } finally {
-      setIsDeleting(null);
-    }
-  };
-
   const handleSaveApp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentApp.name || !currentApp.link) {
@@ -518,15 +528,37 @@ export default function Admin() {
     }
   };
 
-  const handleDeleteApp = async (id: string) => {
-    const path = `apps/${id}`;
+  const handleSaveSurvey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentSurvey.title || !currentSurvey.formUrl) {
+      setAlertMessage({ title: '입력 오류', message: '제목과 설문지 URL을 입력해 주세요.', type: 'error' });
+      return;
+    }
+
+    setIsSaving(true);
+    const path = currentSurvey.id ? `surveys/${currentSurvey.id}` : 'surveys';
+
     try {
-      await deleteDoc(doc(db, 'apps', id));
-      setAlertMessage({ title: '삭제 완료', message: '앱 정보가 삭제되었습니다.', type: 'success' });
+      const { id, ...surveyData } = currentSurvey;
+      if (id) {
+        await updateDoc(doc(db, 'surveys', id), {
+          ...surveyData,
+          createdAt: currentSurvey.createdAt || serverTimestamp()
+        });
+      } else {
+        await addDoc(collection(db, 'surveys'), {
+          ...surveyData,
+          createdAt: serverTimestamp()
+        });
+      }
+      setIsEditingSurvey(false);
+      setAlertMessage({ title: '저장 완료', message: '설문지 정보가 저장되었습니다.', type: 'success' });
+      setCurrentSurvey({ title: '', description: '', formUrl: '', isActive: true });
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, path);
+      setAlertMessage({ title: '저장 실패', message: '설문지 정보 저장 중 오류가 발생했습니다.', type: 'error' });
+      handleFirestoreError(error, currentSurvey.id ? OperationType.UPDATE : OperationType.CREATE, path);
     } finally {
-      setIsDeleting(null);
+      setIsSaving(false);
     }
   };
 
@@ -601,6 +633,13 @@ export default function Admin() {
           >
             <Smartphone size={20} className="mr-2" />
             <span>앱 추가</span>
+          </button>
+          <button
+            onClick={() => { setIsEditingSurvey(true); setCurrentSurvey({ title: '', description: '', formUrl: '', isActive: true }); }}
+            className="inline-flex items-center px-6 py-3 rounded-full bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20"
+          >
+            <ClipboardList size={20} className="mr-2" />
+            <span>설문지 추가</span>
           </button>
           <button
             onClick={() => { setIsEditing(true); setCurrentPost({ title: '', content: '', category: 'class', type: 'news', imageUrl: '' }); }}
@@ -708,6 +747,22 @@ export default function Admin() {
             <div>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">하이라이트</p>
               <p className="text-2xl font-black text-gray-900">{highlights.length}</p>
+            </div>
+          </div>
+        </motion.div>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm"
+        >
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+              <ClipboardList size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">설문조사</p>
+              <p className="text-2xl font-black text-gray-900">{surveys.length}</p>
             </div>
           </div>
         </motion.div>
@@ -964,6 +1019,60 @@ export default function Admin() {
               {apps.length === 0 && (
                 <div className="py-12 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                   <p className="text-gray-400">등록된 앱이 없습니다.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Surveys List */}
+          <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden mt-8">
+            <div className="px-6 py-4 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
+              <h2 className="font-bold text-gray-900 flex items-center space-x-2">
+                <ClipboardList size={18} className="text-indigo-600" />
+                <span>설문조사 목록</span>
+              </h2>
+              <span className="text-xs font-bold text-gray-400">{surveys.length}개의 설문</span>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              {surveys.map(survey => (
+                <div key={survey.id} className="flex items-center justify-between p-4 rounded-2xl border border-gray-50 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center space-x-4">
+                    <div className={clsx(
+                      "w-10 h-10 rounded-xl flex items-center justify-center text-white",
+                      survey.isActive ? "bg-indigo-600" : "bg-gray-400"
+                    )}>
+                      <ClipboardList size={20} />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-bold text-gray-900 text-sm">{survey.title}</h3>
+                        {!survey.isActive && (
+                          <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-[8px] font-bold rounded uppercase tracking-wider">INACTIVE</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400 truncate max-w-[200px]">{survey.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button 
+                      onClick={() => { setCurrentSurvey(survey); setIsEditingSurvey(true); }}
+                      className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                    <button 
+                      onClick={() => survey.id && setIsDeleting({ id: survey.id, type: 'survey' })}
+                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {surveys.length === 0 && (
+                <div className="py-12 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                  <p className="text-gray-400">등록된 설문조사가 없습니다.</p>
                 </div>
               )}
             </div>
@@ -1431,6 +1540,97 @@ export default function Admin() {
           </div>
         </div>
       )}
+
+      {/* Survey Modal */}
+      {isEditingSurvey && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h2 className="text-xl font-bold text-gray-900">
+                {currentSurvey.id ? '설문조사 수정' : '설문조사 추가'}
+              </h2>
+              <button onClick={() => setIsEditingSurvey(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveSurvey} className="p-8 space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">설문 제목</label>
+                <input
+                  type="text"
+                  required
+                  value={currentSurvey.title}
+                  onChange={e => setCurrentSurvey({ ...currentSurvey, title: e.target.value })}
+                  placeholder="예: 2024학년도 체육대회 만족도 조사"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">설문 설명</label>
+                <textarea
+                  required
+                  rows={3}
+                  value={currentSurvey.description}
+                  onChange={e => setCurrentSurvey({ ...currentSurvey, description: e.target.value })}
+                  placeholder="설문에 대한 간단한 설명을 입력해 주세요."
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all resize-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Google 설문지 URL</label>
+                <input
+                  type="url"
+                  required
+                  value={currentSurvey.formUrl}
+                  onChange={e => setCurrentSurvey({ ...currentSurvey, formUrl: e.target.value })}
+                  placeholder="https://docs.google.com/forms/..."
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                />
+              </div>
+
+              <div className="flex items-center space-x-3 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  checked={currentSurvey.isActive}
+                  onChange={e => setCurrentSurvey({ ...currentSurvey, isActive: e.target.checked })}
+                  className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label htmlFor="isActive" className="text-sm font-bold text-indigo-900 cursor-pointer">
+                  현재 활성화됨 (사용자에게 노출됩니다)
+                </label>
+              </div>
+
+              <div className="pt-4 flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingSurvey(false)}
+                  className="flex-1 px-6 py-4 rounded-2xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="flex-1 px-6 py-4 rounded-2xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      <Loader2 className="animate-spin" size={20} />
+                      <span>저장 중...</span>
+                    </div>
+                  ) : (
+                    <span>저장하기</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {isEditingHighlight && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -1600,6 +1800,7 @@ export default function Admin() {
                     <option value="news">NEWS</option>
                     <option value="gallery">GALLERY</option>
                     <option value="notice">NOTICE (공지사항)</option>
+                    <option value="survey">SURVEY (설문지)</option>
                   </select>
                 </div>
                 {currentPost.type === 'news' && (
@@ -1686,7 +1887,9 @@ export default function Admin() {
                           />
                         )}
                         <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-black/50 backdrop-blur-md rounded text-[8px] font-bold text-white uppercase tracking-wider">
-                          {getYoutubeId(currentPost.imageUrl) ? '유튜브 썸네일' : isGoogleDoc(currentPost.imageUrl) ? '구글 문서/시트' : '미리보기'}
+                          {getYoutubeId(currentPost.imageUrl) ? '유튜브 썸네일' : 
+                           currentPost.imageUrl.includes('forms') || currentPost.imageUrl.includes('forms.gle') ? '구글 설문지' :
+                           isGoogleDoc(currentPost.imageUrl) ? '구글 문서/시트' : '미리보기'}
                         </div>
                       </div>
                     )}
@@ -1789,7 +1992,11 @@ export default function Admin() {
             </div>
             <h3 className="text-xl font-bold text-center mb-2">정말로 삭제하시겠습니까?</h3>
             <p className="text-gray-500 text-center mb-8">
-              이 작업은 되돌릴 수 없습니다. {isDeleting.type === 'post' ? '게시글' : isDeleting.type === 'highlight' ? '하이라이트' : '앱 정보'}이 영구적으로 삭제됩니다.
+              이 작업은 되돌릴 수 없습니다. {
+                isDeleting.type === 'post' ? '게시글' : 
+                isDeleting.type === 'highlight' ? '하이라이트' : 
+                isDeleting.type === 'app' ? '앱 정보' : '설문조사'
+              }이 영구적으로 삭제됩니다.
             </p>
             <div className="flex space-x-3">
               <button

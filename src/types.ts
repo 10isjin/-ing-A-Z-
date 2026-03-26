@@ -5,7 +5,7 @@ export interface Post {
   title: string;
   content: string;
   category: 'class' | 'lunch' | 'sports_club' | 'festival' | 'project' | 'health_fitness' | 'oasis' | 'paps' | 'character';
-  type: 'gallery' | 'news' | 'notice';
+  type: 'gallery' | 'news' | 'notice' | 'survey';
   imageUrl?: string;
   authorId: string;
   authorName?: string;
@@ -71,4 +71,13 @@ export interface AppEntry {
   isRecommended?: boolean;
   createdAt: Timestamp;
   likesCount?: number;
+}
+
+export interface Survey {
+  id?: string;
+  title: string;
+  description?: string;
+  formUrl: string;
+  isActive: boolean;
+  createdAt: Timestamp;
 }

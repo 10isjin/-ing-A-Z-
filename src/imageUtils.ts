@@ -74,6 +74,7 @@ export const isGoogleDoc = (url: string | undefined): boolean => {
   const trimmedUrl = url.trim();
   return (
     trimmedUrl.includes('docs.google.com') ||
+    trimmedUrl.includes('forms.gle') ||
     trimmedUrl.includes('drive.google.com/file/d/') ||
     trimmedUrl.includes('drive.google.com/open?id=')
   );

@@ -76,6 +76,20 @@
         "todayCount": { "type": "integer", "description": "Number of visits today." },
         "lastDate": { "type": "string", "description": "The date of the last visit (YYYY-MM-DD)." }
       }
+    },
+    "survey": {
+      "title": "Survey",
+      "description": "A Google Forms survey for users to participate in.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the survey." },
+        "title": { "type": "string", "description": "Title of the survey." },
+        "description": { "type": "string", "description": "Short description of the survey." },
+        "formUrl": { "type": "string", "description": "URL of the Google Form." },
+        "isActive": { "type": "boolean", "description": "Whether the survey is currently active." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp." }
+      },
+      "required": ["title", "formUrl", "isActive", "createdAt"]
     }
   },
   "firestore": {
@@ -94,6 +108,10 @@
     "/analytics/visitors": {
       "schema": "visitorStats",
       "description": "Visitor statistics."
+    },
+    "/surveys/{surveyId}": {
+      "schema": "survey",
+      "description": "Collection of Google Forms surveys."
     }
   }
 }
