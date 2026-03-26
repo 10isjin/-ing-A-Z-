@@ -226,7 +226,8 @@ export default function Admin() {
         const file = new File([blob], `processed_${Date.now()}.jpg`, { type: 'image/jpeg' });
 
         // 2. Process image
-        const blurredFile = await processFile(file);
+        const result = await processFile(file);
+        const blurredFile = result.file;
 
         // 3. Upload image
         const storageRef = ref(storage, `uploads/processed_${Date.now()}_${i}.jpg`);
@@ -268,7 +269,22 @@ export default function Admin() {
             message: '초상권 보호를 위해 얼굴을 자동으로 감지하여 블러 처리하고 있습니다...', 
             type: 'success' 
           });
-          file = await processFile(file);
+          const result = await processFile(file);
+          file = result.file;
+          
+          if (result.facesCount === 0) {
+            setAlertMessage({ 
+              title: '얼굴 감지 안됨', 
+              message: '사진에서 얼굴을 찾지 못했습니다. 수동으로 확인해 주세요.', 
+              type: 'error' 
+            });
+          } else {
+            setAlertMessage({ 
+              title: '얼굴 블러 완료', 
+              message: `${result.facesCount}개의 얼굴을 감지하여 블러 처리했습니다.`, 
+              type: 'success' 
+            });
+          }
         } catch (err) {
           console.error("Face blur failed:", err);
           // Continue with original file if blur fails, but notify user
