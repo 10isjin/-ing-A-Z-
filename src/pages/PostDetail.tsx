@@ -216,7 +216,6 @@ export default function PostDetail() {
   };
 
   const isGallery = post.type === 'gallery';
-  const isSurvey = post.type === 'survey';
   
   const themeClasses = isGallery 
     ? {
@@ -227,16 +226,6 @@ export default function PostDetail() {
         bgHover: 'hover:bg-pink-700',
         shadow: 'shadow-pink-500/10',
         prose: 'prose-pink'
-      }
-    : isSurvey
-    ? {
-        text: 'text-indigo-600',
-        textLight: 'text-indigo-500',
-        hoverText: 'hover:text-indigo-600',
-        bg: 'bg-indigo-600',
-        bgHover: 'hover:bg-indigo-700',
-        shadow: 'shadow-indigo-500/10',
-        prose: 'prose-indigo'
       }
     : {
         text: 'text-green-600',

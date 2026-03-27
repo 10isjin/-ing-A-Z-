@@ -1800,7 +1800,6 @@ export default function Admin() {
                     <option value="news">NEWS</option>
                     <option value="gallery">GALLERY</option>
                     <option value="notice">NOTICE (공지사항)</option>
-                    <option value="survey">SURVEY (설문지)</option>
                   </select>
                 </div>
                 {currentPost.type === 'news' && (

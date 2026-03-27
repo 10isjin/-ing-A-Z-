@@ -41,7 +41,6 @@ export default function PostCard({ post }: PostCardProps) {
     : '날짜 정보 없음';
 
   const isGallery = post.type === 'gallery';
-  const isSurvey = post.type === 'survey';
   const isDoc = isGoogleDoc(post.imageUrl);
   
   const themeClasses = isGallery 
@@ -51,14 +50,6 @@ export default function PostCard({ post }: PostCardProps) {
         textAccent: 'text-pink-600',
         bgAccent: 'bg-pink-50',
         borderAccent: 'border-pink-100'
-      }
-    : isSurvey
-    ? {
-        hoverShadow: 'hover:shadow-indigo-500/5',
-        titleHover: 'group-hover:text-indigo-600',
-        textAccent: 'text-indigo-600',
-        bgAccent: 'bg-indigo-50',
-        borderAccent: 'border-indigo-100'
       }
     : {
         hoverShadow: 'hover:shadow-green-500/5',
