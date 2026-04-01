@@ -77,6 +77,16 @@
         "lastDate": { "type": "string", "description": "The date of the last visit (YYYY-MM-DD)." }
       }
     },
+    "dailyStats": {
+      "title": "Daily Visitor Statistics",
+      "description": "Visitor count for a specific day.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "description": "The date (YYYY-MM-DD)." },
+        "count": { "type": "integer", "description": "Number of visits on this day." }
+      },
+      "required": ["date", "count"]
+    },
     "survey": {
       "title": "Survey",
       "description": "A Google Forms survey for users to participate in.",
@@ -108,6 +118,10 @@
     "/analytics/visitors": {
       "schema": "visitorStats",
       "description": "Visitor statistics."
+    },
+    "/daily_stats/{date}": {
+      "schema": "dailyStats",
+      "description": "Daily visitor counts history."
     },
     "/surveys/{surveyId}": {
       "schema": "survey",

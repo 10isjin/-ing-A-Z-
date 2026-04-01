@@ -5,18 +5,24 @@ import { db } from '../firebase';
 export default function VisitorTracker() {
   useEffect(() => {
     const trackVisit = async () => {
-      // Use sessionStorage to prevent multiple counts in the same session
-      const hasVisited = sessionStorage.getItem('v_tracked');
-      if (hasVisited) return;
-
       const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+      
+      // Use localStorage to count unique visitors per day
+      const lastTrackedDate = localStorage.getItem('v_tracked_date');
+      if (lastTrackedDate === today) return;
+
       const visitorRef = doc(db, 'analytics', 'visitors');
+      const dailyRef = doc(db, 'daily_stats', today);
 
       try {
-        const docSnap = await getDoc(visitorRef);
+        // Use setDoc with merge: true for daily stats to handle creation and increment in one go
+        await setDoc(dailyRef, { 
+          date: today, 
+          count: increment(1) 
+        }, { merge: true });
 
+        const docSnap = await getDoc(visitorRef);
         if (!docSnap.exists()) {
-          // Initialize if it doesn't exist
           await setDoc(visitorRef, {
             totalCount: 1,
             todayCount: 1,
@@ -25,13 +31,11 @@ export default function VisitorTracker() {
         } else {
           const data = docSnap.data();
           if (data.lastDate === today) {
-            // Same day, increment both
             await updateDoc(visitorRef, {
               totalCount: increment(1),
               todayCount: increment(1)
             });
           } else {
-            // New day, reset todayCount
             await updateDoc(visitorRef, {
               totalCount: increment(1),
               todayCount: 1,
@@ -39,7 +43,7 @@ export default function VisitorTracker() {
             });
           }
         }
-        sessionStorage.setItem('v_tracked', 'true');
+        localStorage.setItem('v_tracked_date', today);
       } catch (error) {
         console.error("Error tracking visit:", error);
       }

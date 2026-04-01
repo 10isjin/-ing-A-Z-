@@ -11,7 +11,7 @@ import { motion } from 'motion/react';
 export default function Home() {
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
-  const [displayHighlights, setDisplayHighlights] = useState<Highlight[]>([]);
+  const [postGalleryHighlights, setPostGalleryHighlights] = useState<Highlight[]>([]);
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({
     siteName: '갈매중은 지금 체육ing Aㅏ침부터 Zㅓ녁까지',
@@ -41,38 +41,40 @@ export default function Home() {
       const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
       
       // Filter latest news for the news section
-      const newsPosts = posts.filter(post => post.type === 'news' || post.type === 'notice').slice(0, 3);
-      setLatestPosts(newsPosts);
+      const allNews = posts.filter(post => post.type === 'news' || post.type === 'notice');
+      const highlightedNews = allNews.filter(p => p.isHighlight);
+      const regularNews = allNews.filter(p => !p.isHighlight);
+      const sortedNews = [...highlightedNews, ...regularNews].slice(0, 6);
+      setLatestPosts(sortedNews);
 
-      // Get latest gallery posts for automatic highlights
-      const galleryPosts = posts.filter(post => post.type === 'gallery' && post.imageUrl);
+      // Get all gallery posts with images
+      const postHighlights = posts.filter(post => post.imageUrl && post.type === 'gallery');
       
-      // Combine manual highlights with automatic gallery posts
-      // Manual highlights take precedence
-      const combinedHighlights = [...highlights];
-      
-      // Add gallery posts that aren't already in highlights (by image URL)
-      galleryPosts.forEach(gp => {
-        if (combinedHighlights.length < 8 && !combinedHighlights.find(h => h.imageUrl === gp.imageUrl)) {
-          combinedHighlights.push({
-            id: gp.id || '',
-            title: gp.title,
-            imageUrl: gp.imageUrl || '',
-            createdAt: gp.createdAt
-          });
-        }
-      });
+      // Separate post highlights
+      const galleryPostHighlights = postHighlights.map(p => ({
+        id: p.id,
+        title: p.title,
+        imageUrl: p.imageUrl || '',
+        type: p.type as any,
+        createdAt: p.createdAt,
+        isHighlight: p.isHighlight || false,
+        link: `/post/${p.id}`
+      }));
 
-      setDisplayHighlights(combinedHighlights.slice(0, 4));
+      setPostGalleryHighlights(galleryPostHighlights);
       setLoading(false);
     }, (error) => {
       console.error("Error fetching posts in Home:", error);
     });
 
-    const hq = query(collection(db, 'highlights'), orderBy('createdAt', 'desc'), limit(4));
+    const hq = query(collection(db, 'highlights'), orderBy('createdAt', 'desc'));
     const unsubscribeHighlights = onSnapshot(hq, (snapshot) => {
       const h = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Highlight));
-      setHighlights(h);
+      // Include only gallery highlights that have an image
+      const galleryH = h.filter(item => item.imageUrl && (!item.type || item.type === 'gallery'))
+                        .map(item => ({ ...item, isHighlight: true }));
+      
+      setHighlights(galleryH);
     }, (error) => {
       console.error("Error fetching highlights in Home:", error);
     });
@@ -103,6 +105,49 @@ export default function Home() {
     };
   }, []);
 
+  // Combine manual highlights and post-based highlights
+  const finalGalleryHighlights = React.useMemo(() => {
+    const combined = [...highlights, ...postGalleryHighlights];
+    // Filter duplicates by imageUrl
+    const unique = combined.filter((v, i, a) => a.findIndex(t => t.imageUrl === v.imageUrl) === i);
+    
+    return unique.sort((a, b) => {
+      // Prioritize manually marked highlights (isHighlight: true)
+      const aIsHigh = (a as any).isHighlight;
+      const bIsHigh = (b as any).isHighlight;
+      
+      if (aIsHigh && !bIsHigh) return -1;
+      if (!aIsHigh && bIsHigh) return 1;
+
+      const getTime = (date: any) => {
+        if (!date) return 0;
+        if (typeof date.toMillis === 'function') return date.toMillis();
+        if (date instanceof Date) return date.getTime();
+        if (typeof date === 'number') return date;
+        if (typeof date === 'string') return new Date(date).getTime();
+        if (date.seconds) return date.seconds * 1000;
+        return 0;
+      };
+      
+      return getTime(b.createdAt) - getTime(a.createdAt);
+    }).slice(0, 4);
+  }, [highlights, postGalleryHighlights]);
+
+  const displayHighlights = React.useMemo(() => {
+    const defaultImages = [
+      { id: 'def1', title: '농구', imageUrl: 'https://storage.googleapis.com/multimodal_ai_studio/as_storage/b3ihjs7i4dlulpnvu3n4kz/67d8d263-8822-4a02-8646-068d37452d3c.png', isDefault: true },
+      { id: 'def2', title: '운동', imageUrl: 'https://picsum.photos/seed/sports-1/400/600', isDefault: true },
+      { id: 'def3', title: '운동', imageUrl: 'https://picsum.photos/seed/sports-2/400/600', isDefault: true },
+      { id: 'def4', title: '운동', imageUrl: 'https://picsum.photos/seed/sports-3/400/600', isDefault: true },
+    ];
+    
+    const result = [...finalGalleryHighlights] as any[];
+    while (result.length < 4) {
+      result.push(defaultImages[result.length]);
+    }
+    return result;
+  }, [finalGalleryHighlights]);
+
   const stats = [
     { icon: <Trophy className="text-yellow-500" />, label: siteSettings.stat1Label, value: siteSettings.stat1Value },
     { icon: <Users className="text-blue-500" />, label: siteSettings.stat2Label, value: siteSettings.stat2Value },
@@ -111,7 +156,7 @@ export default function Home() {
   ];
 
   return (
-    <div className="space-y-24 pb-24">
+    <div className="space-y-12 sm:space-y-24 pb-24">
       {/* Hero Section */}
       <section className="relative h-[85vh] flex items-center overflow-hidden bg-slate-950">
         {/* Dynamic Background Pattern */}
@@ -201,7 +246,7 @@ export default function Home() {
 
       {/* Stats Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-4 gap-2 sm:gap-8">
           {stats.map((stat, idx) => (
             <motion.div 
               key={idx}
@@ -209,13 +254,15 @@ export default function Home() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ delay: idx * 0.1 }}
-              className="bg-white p-8 rounded-3xl border border-gray-100 text-center hover:border-green-200 transition-colors"
+              className="bg-white p-3 sm:p-8 rounded-2xl sm:rounded-3xl border border-gray-100 text-center hover:border-green-200 transition-colors shadow-sm sm:shadow-none"
             >
-              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                {stat.icon}
+              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gray-50 rounded-lg sm:rounded-2xl flex items-center justify-center mx-auto mb-2 sm:mb-4">
+                <div className="scale-75 sm:scale-100">
+                  {stat.icon}
+                </div>
               </div>
-              <div className="text-3xl font-black text-gray-900 mb-1">{stat.value}</div>
-              <div className="text-sm text-gray-400 font-medium">{stat.label}</div>
+              <div className="text-lg sm:text-3xl font-black text-gray-900 mb-0.5 sm:mb-1">{stat.value}</div>
+              <div className="text-[10px] sm:text-sm text-gray-400 font-medium leading-tight">{stat.label}</div>
             </motion.div>
           ))}
         </div>
@@ -236,7 +283,7 @@ export default function Home() {
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[1, 2, 3].map(i => (
+            {[1, 2, 3, 4, 5, 6].map(i => (
               <div key={i} className="h-96 bg-gray-100 rounded-2xl animate-pulse" />
             ))}
           </div>
@@ -254,6 +301,85 @@ export default function Home() {
           </div>
         )}
       </section>
+
+      {/* Activity Highlights Gallery */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-12">
+          <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mb-2">활동 하이라이트</h2>
+          <p className="text-[10px] sm:text-sm text-gray-500 whitespace-nowrap sm:whitespace-normal">에너지 넘치는 갈매중 학생들의 모습입니다.</p>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {displayHighlights.map((h, idx) => (
+            <motion.div 
+              key={h.id}
+              whileHover={{ scale: 1.02 }}
+              className={`relative group ${idx % 2 === 1 ? 'md:mt-8' : ''}`}
+            >
+              {isGoogleDoc(h.imageUrl) ? (
+                <div className="w-full h-64 bg-gray-50 rounded-3xl shadow-lg border border-gray-100 flex flex-col items-center justify-center p-6 space-y-4">
+                  <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center">
+                    {h.imageUrl.includes('spreadsheets') ? (
+                      <Table className="text-green-600" size={32} />
+                    ) : h.imageUrl.includes('presentation') ? (
+                      <Presentation className="text-orange-500" size={32} />
+                    ) : (
+                      <FileText className="text-blue-500" size={32} />
+                    )}
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 opacity-60">
+                    {h.imageUrl.includes('spreadsheets') ? 'Google Sheets' : 
+                     h.imageUrl.includes('presentation') ? 'Google Slides' : 'Google Docs'}
+                  </span>
+                </div>
+              ) : (
+                <img 
+                  src={getDirectImageUrl(h.imageUrl)} 
+                  alt={h.title} 
+                  className="w-full h-64 object-cover rounded-3xl shadow-lg"
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl flex items-end p-6">
+                <p className="text-white font-bold text-sm">{h.title}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Surveys Section */}
+      {surveys.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-12">
+            <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mb-2">설문조사 참여</h2>
+            <p className="text-[10px] sm:text-sm text-gray-500 whitespace-nowrap sm:whitespace-normal">갈매중학교 체육 활동 발전을 위해 여러분의 의견을 들려주세요.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {surveys.map(survey => (
+              <motion.a
+                key={survey.id}
+                href={survey.formUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                whileHover={{ y: -5 }}
+                className="group bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all flex items-start space-x-6"
+              >
+                <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-shrink-0">
+                  <ClipboardList size={32} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">{survey.title}</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed mb-4 line-clamp-2">{survey.description}</p>
+                  <div className="flex items-center text-indigo-600 font-bold text-sm">
+                    <span>설문 참여하기</span>
+                    <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </motion.a>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Apps Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -298,119 +424,6 @@ export default function Home() {
           <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
         </motion.div>
-      </section>
-
-      {/* Surveys Section */}
-      {surveys.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-12">
-            <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mb-2">설문조사 참여</h2>
-            <p className="text-[10px] sm:text-sm text-gray-500 whitespace-nowrap sm:whitespace-normal">갈매중학교 체육 활동 발전을 위해 여러분의 의견을 들려주세요.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {surveys.map(survey => (
-              <motion.a
-                key={survey.id}
-                href={survey.formUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                whileHover={{ y: -5 }}
-                className="group bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all flex items-start space-x-6"
-              >
-                <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-shrink-0">
-                  <ClipboardList size={32} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">{survey.title}</h3>
-                  <p className="text-gray-500 text-sm leading-relaxed mb-4 line-clamp-2">{survey.description}</p>
-                  <div className="flex items-center text-indigo-600 font-bold text-sm">
-                    <span>설문 참여하기</span>
-                    <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </motion.a>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Activity Highlights Gallery */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-12">
-          <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mb-2">활동 하이라이트</h2>
-          <p className="text-[10px] sm:text-sm text-gray-500 whitespace-nowrap sm:whitespace-normal">에너지 넘치는 갈매중 학생들의 모습입니다.</p>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {displayHighlights.length > 0 ? (
-            displayHighlights.map((h, idx) => (
-              <motion.div 
-                key={h.id}
-                whileHover={{ scale: 1.02 }}
-                className={`relative group ${idx % 2 === 1 ? 'md:mt-8' : ''}`}
-              >
-                {isGoogleDoc(h.imageUrl) ? (
-                  <div className="w-full h-64 bg-gray-50 rounded-3xl shadow-lg border border-gray-100 flex flex-col items-center justify-center p-6 space-y-4">
-                    <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center">
-                      {h.imageUrl.includes('spreadsheets') ? (
-                        <Table className="text-green-600" size={32} />
-                      ) : h.imageUrl.includes('presentation') ? (
-                        <Presentation className="text-orange-500" size={32} />
-                      ) : (
-                        <FileText className="text-blue-500" size={32} />
-                      )}
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 opacity-60">
-                      {h.imageUrl.includes('spreadsheets') ? 'Google Sheets' : 
-                       h.imageUrl.includes('presentation') ? 'Google Slides' : 'Google Docs'}
-                    </span>
-                  </div>
-                ) : (
-                  <img 
-                    src={getDirectImageUrl(h.imageUrl)} 
-                    alt={h.title} 
-                    className="w-full h-64 object-cover rounded-3xl shadow-lg"
-                    referrerPolicy="no-referrer"
-                  />
-                )}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl flex items-end p-6">
-                  <p className="text-white font-bold text-sm">{h.title}</p>
-                </div>
-              </motion.div>
-            ))
-          ) : (
-            // Fallback to default images if none registered
-            <>
-              <motion.img 
-                whileHover={{ scale: 1.02 }}
-                src="https://storage.googleapis.com/multimodal_ai_studio/as_storage/b3ihjs7i4dlulpnvu3n4kz/67d8d263-8822-4a02-8646-068d37452d3c.png" 
-                alt="농구" 
-                className="w-full h-64 object-cover rounded-3xl shadow-lg"
-                referrerPolicy="no-referrer"
-              />
-              <motion.img 
-                whileHover={{ scale: 1.02 }}
-                src="https://picsum.photos/seed/sports-1/400/600" 
-                alt="운동" 
-                className="w-full h-64 object-cover rounded-3xl shadow-lg md:mt-8"
-                referrerPolicy="no-referrer"
-              />
-              <motion.img 
-                whileHover={{ scale: 1.02 }}
-                src="https://picsum.photos/seed/sports-2/400/600" 
-                alt="운동" 
-                className="w-full h-64 object-cover rounded-3xl shadow-lg"
-                referrerPolicy="no-referrer"
-              />
-              <motion.img 
-                whileHover={{ scale: 1.02 }}
-                src="https://picsum.photos/seed/sports-3/400/600" 
-                alt="운동" 
-                className="w-full h-64 object-cover rounded-3xl shadow-lg md:mt-8"
-                referrerPolicy="no-referrer"
-              />
-            </>
-          )}
-        </div>
       </section>
 
     </div>

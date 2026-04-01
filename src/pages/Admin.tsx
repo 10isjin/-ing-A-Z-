@@ -5,7 +5,11 @@ import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapsh
 import { ref, uploadBytes, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
 import { Post, SiteSettings, Highlight, AppEntry, Survey } from '../types';
 import { getDirectImageUrl, getYoutubeId, isGoogleDoc, getGoogleDocEmbedUrl } from '../imageUtils';
-import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, LayoutDashboard, FileText, Settings, LogOut, Database, Star, Upload, Loader2, Check, Smartphone, Clock, Users, Eye, Table, Presentation, Shield, ClipboardList } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, LayoutDashboard, FileText, Settings, LogOut, Database, Star, Upload, Loader2, Check, Smartphone, Clock, Users, Eye, Table, Presentation, Shield, ClipboardList, BarChart2, Newspaper } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import clsx from 'clsx';
+import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
 
 enum OperationType {
   CREATE = 'create',
@@ -33,32 +37,41 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 }
 import { processFile } from '../utils/faceBlur';
 import { motion } from 'motion/react';
-import { clsx } from 'clsx';
-import { format } from 'date-fns';
-import { ko } from 'date-fns/locale';
 
 export default function Admin() {
   const [user, setUser] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [newsHighlights, setNewsHighlights] = useState<Highlight[]>([]);
   const [apps, setApps] = useState<AppEntry[]>([]);
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [visitorStats, setVisitorStats] = useState<{ totalCount: number; todayCount: number } | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [isEditingHighlight, setIsEditingHighlight] = useState(false);
+  const [isEditingNewsHighlight, setIsEditingNewsHighlight] = useState(false);
   const [isEditingApp, setIsEditingApp] = useState(false);
   const [isEditingSurvey, setIsEditingSurvey] = useState(false);
+  const [isViewingStats, setIsViewingStats] = useState(false);
+  const [dailyStats, setDailyStats] = useState<{ date: string; count: number }[]>([]);
   const [currentPost, setCurrentPost] = useState<Partial<Post>>({
     title: '',
     content: '',
     category: 'class',
-    type: 'news',
-    imageUrl: ''
+    type: 'gallery',
+    imageUrl: '',
+    isHighlight: false
   });
   const [currentHighlight, setCurrentHighlight] = useState<Partial<Highlight>>({
     title: '',
-    imageUrl: ''
+    imageUrl: '',
+    type: 'gallery'
+  });
+  const [currentNewsHighlight, setCurrentNewsHighlight] = useState<Partial<Highlight>>({
+    title: '',
+    imageUrl: '',
+    type: 'news',
+    link: ''
   });
   const [currentApp, setCurrentApp] = useState<Partial<AppEntry>>({
     name: '',
@@ -150,7 +163,8 @@ export default function Admin() {
     const hq = query(collection(db, 'highlights'), orderBy('createdAt', 'desc'));
     const unsubscribeHighlights = onSnapshot(hq, (snapshot) => {
       const fetchedHighlights = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Highlight));
-      setHighlights(fetchedHighlights);
+      setHighlights(fetchedHighlights.filter(h => !h.type || h.type === 'gallery'));
+      setNewsHighlights(fetchedHighlights.filter(h => h.type === 'news'));
     }, (error) => {
       console.error("Error fetching highlights in Admin:", error);
     });
@@ -196,6 +210,14 @@ export default function Admin() {
       console.error("Error fetching surveys in Admin:", error);
     });
 
+    const dsq = query(collection(db, 'daily_stats'), orderBy('date', 'desc'));
+    const unsubscribeDailyStats = onSnapshot(dsq, (snapshot) => {
+      const stats = snapshot.docs.map(doc => doc.data() as { date: string; count: number });
+      setDailyStats([...stats].reverse());
+    }, (error) => {
+      console.error("Error fetching daily stats in Admin:", error);
+    });
+
     return () => {
       unsubscribeAuth();
       unsubscribePosts();
@@ -204,6 +226,7 @@ export default function Admin() {
       unsubscribeApps();
       unsubscribeVisitors();
       unsubscribeSurveys();
+      unsubscribeDailyStats();
     };
   }, []);
 
@@ -270,7 +293,7 @@ export default function Admin() {
     });
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'post' | 'highlight') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'post' | 'highlight' | 'news_highlight') => {
     let file = e.target.files?.[0];
     if (!file || !user) return;
 
@@ -348,8 +371,10 @@ export default function Admin() {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           if (type === 'post') {
             setCurrentPost(prev => ({ ...prev, imageUrl: downloadURL }));
-          } else {
+          } else if (type === 'highlight') {
             setCurrentHighlight(prev => ({ ...prev, imageUrl: downloadURL }));
+          } else if (type === 'news_highlight') {
+            setCurrentNewsHighlight(prev => ({ ...prev, imageUrl: downloadURL }));
           }
           setUploading(false);
           setUploadProgress(0);
@@ -405,7 +430,7 @@ export default function Admin() {
         });
       }
       setIsEditing(false);
-      setCurrentPost({ title: '', content: '', category: 'class', type: 'news', imageUrl: '' });
+      setCurrentPost({ title: '', content: '', category: 'class', type: 'gallery', imageUrl: '', isHighlight: false });
       setAlertMessage({ title: '저장 완료', message: '게시글이 성공적으로 저장되었습니다.', type: 'success' });
     } catch (error) {
       console.error("Save error:", error);
@@ -413,6 +438,26 @@ export default function Admin() {
       handleFirestoreError(error, currentPost.id ? OperationType.UPDATE : OperationType.CREATE, path);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleToggleHighlight = async (post: Post) => {
+    if (!post.id) return;
+    try {
+      const postRef = doc(db, 'posts', post.id);
+      await updateDoc(postRef, {
+        isHighlight: !post.isHighlight,
+        updatedAt: serverTimestamp()
+      });
+      setAlertMessage({ 
+        title: post.isHighlight ? '하이라이트 해제' : '하이라이트 등록', 
+        message: post.isHighlight ? '하이라이트에서 성공적으로 해제되었습니다.' : '하이라이트로 성공적으로 등록되었습니다.', 
+        type: 'success' 
+      });
+    } catch (error) {
+      console.error("Toggle highlight error:", error);
+      setAlertMessage({ title: '오류 발생', message: '하이라이트 상태 변경 중 오류가 발생했습니다.', type: 'error' });
+      handleFirestoreError(error, OperationType.UPDATE, `posts/${post.id}`);
     }
   };
 
@@ -484,10 +529,47 @@ export default function Admin() {
       }
       setIsEditingHighlight(false);
       setAlertMessage({ title: '저장 완료', message: '하이라이트가 저장되었습니다.', type: 'success' });
-      setCurrentHighlight({ title: '', imageUrl: '' });
+      setCurrentHighlight({ title: '', imageUrl: '', type: 'gallery' });
     } catch (error) {
       setAlertMessage({ title: '저장 실패', message: '하이라이트 저장 중 오류가 발생했습니다.', type: 'error' });
       handleFirestoreError(error, currentHighlight.id ? OperationType.UPDATE : OperationType.CREATE, path);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveNewsHighlight = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentNewsHighlight.imageUrl || !currentNewsHighlight.title) {
+      setAlertMessage({ title: '입력 오류', message: '제목과 이미지를 모두 입력해 주세요.', type: 'error' });
+      return;
+    }
+
+    setIsSaving(true);
+    const path = currentNewsHighlight.id ? `highlights/${currentNewsHighlight.id}` : 'highlights';
+    const finalImageUrl = convertDriveUrl(currentNewsHighlight.imageUrl || '');
+
+    try {
+      const { id, ...highlightData } = currentNewsHighlight;
+      if (id) {
+        await updateDoc(doc(db, 'highlights', id), {
+          ...highlightData,
+          imageUrl: finalImageUrl,
+          createdAt: currentNewsHighlight.createdAt || serverTimestamp()
+        });
+      } else {
+        await addDoc(collection(db, 'highlights'), {
+          ...highlightData,
+          imageUrl: finalImageUrl,
+          createdAt: serverTimestamp()
+        });
+      }
+      setIsEditingNewsHighlight(false);
+      setAlertMessage({ title: '저장 완료', message: '뉴스 하이라이트가 저장되었습니다.', type: 'success' });
+      setCurrentNewsHighlight({ title: '', imageUrl: '', type: 'news', link: '' });
+    } catch (error) {
+      setAlertMessage({ title: '저장 실패', message: '뉴스 하이라이트 저장 중 오류가 발생했습니다.', type: 'error' });
+      handleFirestoreError(error, currentNewsHighlight.id ? OperationType.UPDATE : OperationType.CREATE, path);
     } finally {
       setIsSaving(false);
     }
@@ -621,13 +703,6 @@ export default function Admin() {
             <span>샘플 데이터 생성</span>
           </button>
           <button
-            onClick={() => { setIsEditingHighlight(true); setCurrentHighlight({ title: '', imageUrl: '' }); }}
-            className="inline-flex items-center px-6 py-3 rounded-full bg-pink-600 text-white font-bold hover:bg-pink-700 transition-all shadow-lg shadow-pink-600/20"
-          >
-            <Star size={20} className="mr-2" />
-            <span>하이라이트 추가</span>
-          </button>
-          <button
             onClick={() => { setIsEditingApp(true); setCurrentApp({ name: '', description: '', category: '', link: '', color: 'bg-blue-600', iconName: 'Activity', isRecommended: false }); }}
             className="inline-flex items-center px-6 py-3 rounded-full bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20"
           >
@@ -635,14 +710,7 @@ export default function Admin() {
             <span>앱 추가</span>
           </button>
           <button
-            onClick={() => { setIsEditingSurvey(true); setCurrentSurvey({ title: '', description: '', formUrl: '', isActive: true }); }}
-            className="inline-flex items-center px-6 py-3 rounded-full bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20"
-          >
-            <ClipboardList size={20} className="mr-2" />
-            <span>설문지 추가</span>
-          </button>
-          <button
-            onClick={() => { setIsEditing(true); setCurrentPost({ title: '', content: '', category: 'class', type: 'news', imageUrl: '' }); }}
+            onClick={() => { setIsEditing(true); setCurrentPost({ title: '', content: '', category: 'class', type: 'gallery', imageUrl: '' }); }}
             className="inline-flex items-center px-6 py-3 rounded-full bg-green-600 text-white font-bold hover:bg-green-700 transition-all shadow-lg shadow-green-600/20"
           >
             <Plus size={20} className="mr-2" />
@@ -786,15 +854,19 @@ export default function Admin() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm"
+          onClick={() => setIsViewingStats(true)}
+          className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm cursor-pointer hover:border-purple-200 hover:shadow-md transition-all group"
         >
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600">
+            <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors">
               <Users size={24} />
             </div>
             <div>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">누적 방문자</p>
-              <p className="text-2xl font-black text-gray-900">{visitorStats?.totalCount || 0}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-2xl font-black text-gray-900">{visitorStats?.totalCount || 0}</p>
+                <BarChart2 size={16} className="text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
             </div>
           </div>
         </motion.div>
@@ -862,25 +934,33 @@ export default function Admin() {
                           {post.category === 'class' ? '교과수업' : post.category === 'lunch' ? '런치리그' : post.category === 'sports_club' ? '교육장배학교스포츠' : post.category === 'festival' ? '체육대회' : post.category === 'project' ? '프로젝트' : post.category === 'health_fitness' ? '건강체력교실' : post.category === 'oasis' ? '오아시스' : post.category === 'paps' ? 'PAPS' : '인성'}
                         </span>
                       </div>
-                      <h3 className="font-bold text-gray-900 truncate">{post.title}</h3>
+                      <h3 className="font-bold text-gray-900 truncate flex items-center gap-2">
+                        {post.title}
+                        {post.isHighlight && (
+                          <span className="flex items-center text-[10px] font-black text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">
+                            <Star size={10} className="mr-0.5 fill-orange-500" />
+                            하이라이트
+                          </span>
+                        )}
+                      </h3>
                       <p className="text-xs text-gray-400 mt-1">
                         {post.createdAt?.toDate() ? format(post.createdAt.toDate(), 'yyyy.MM.dd HH:mm', { locale: ko }) : '-'}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2 ml-4">
-                    {post.type === 'gallery' && (
-                      <button 
-                        onClick={() => {
-                          setCurrentHighlight({ title: post.title, imageUrl: post.imageUrl });
-                          setIsEditingHighlight(true);
-                        }}
-                        className="p-2 text-gray-400 hover:text-pink-600 hover:bg-pink-50 rounded-lg transition-all"
-                        title="하이라이트에 핀 고정"
-                      >
-                        <Star size={18} />
-                      </button>
-                    )}
+                    <button 
+                      onClick={() => handleToggleHighlight(post)}
+                      className={clsx(
+                        "p-2 rounded-lg transition-all",
+                        post.isHighlight 
+                          ? "text-orange-500 bg-orange-50 hover:bg-orange-100" 
+                          : "text-gray-400 hover:text-orange-500 hover:bg-orange-50"
+                      )}
+                      title={post.isHighlight ? "하이라이트 해제" : "하이라이트 등록"}
+                    >
+                      <Star size={18} className={post.isHighlight ? "fill-orange-500" : ""} />
+                    </button>
                     <button 
                       onClick={() => handleEdit(post)}
                       className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
@@ -899,70 +979,6 @@ export default function Admin() {
               {posts.length === 0 && !loading && (
                 <div className="p-12 text-center">
                   <p className="text-gray-400">등록된 게시글이 없습니다.</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Highlights List */}
-          <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden mt-8">
-            <div className="px-6 py-4 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
-              <h2 className="font-bold text-gray-900 flex items-center space-x-2">
-                <Star size={18} className="text-pink-600" />
-                <span>활동 하이라이트 목록</span>
-              </h2>
-              <span className="text-xs font-bold text-gray-400">{highlights.length}개의 하이라이트</span>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6">
-              {highlights.map(h => (
-                <div key={h.id} className="group relative rounded-2xl overflow-hidden aspect-video border border-gray-100">
-                  {isGoogleDoc(h.imageUrl) ? (
-                    <div className="w-full h-full bg-gray-50 flex flex-col items-center justify-center p-4 space-y-2">
-                      <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center">
-                        {h.imageUrl.includes('spreadsheets') ? (
-                          <Table className="text-green-600" size={20} />
-                        ) : h.imageUrl.includes('presentation') ? (
-                          <Presentation className="text-orange-500" size={20} />
-                        ) : (
-                          <FileText className="text-blue-500" size={20} />
-                        )}
-                      </div>
-                      <span className="text-[8px] font-bold uppercase tracking-widest text-gray-400 opacity-60">
-                        {h.imageUrl.includes('spreadsheets') ? 'Google Sheets' : 
-                         h.imageUrl.includes('presentation') ? 'Google Slides' : 'Google Docs'}
-                      </span>
-                    </div>
-                  ) : (
-                    <img 
-                      src={getDirectImageUrl(h.imageUrl)} 
-                      className="w-full h-full object-cover" 
-                      alt={h.title}
-                      referrerPolicy="no-referrer"
-                    />
-                  )}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-4">
-                    <p className="text-white text-sm font-bold">{h.title}</p>
-                    <div className="flex justify-end space-x-2">
-                      <button 
-                        onClick={() => { setCurrentHighlight(h); setIsEditingHighlight(true); }}
-                        className="p-2 bg-white/20 hover:bg-white/40 rounded-lg text-white transition-colors"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button 
-                        onClick={() => h.id && setIsDeleting({ id: h.id, type: 'highlight' })}
-                        className="p-2 bg-red-500/20 hover:bg-red-500/40 rounded-lg text-red-200 transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {highlights.length === 0 && (
-                <div className="col-span-full py-12 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                  <p className="text-gray-400">등록된 하이라이트가 없습니다.</p>
                 </div>
               )}
             </div>
@@ -1024,59 +1040,7 @@ export default function Admin() {
             </div>
           </div>
 
-          {/* Surveys List */}
-          <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden mt-8">
-            <div className="px-6 py-4 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
-              <h2 className="font-bold text-gray-900 flex items-center space-x-2">
-                <ClipboardList size={18} className="text-indigo-600" />
-                <span>설문조사 목록</span>
-              </h2>
-              <span className="text-xs font-bold text-gray-400">{surveys.length}개의 설문</span>
-            </div>
-            
-            <div className="p-6 space-y-4">
-              {surveys.map(survey => (
-                <div key={survey.id} className="flex items-center justify-between p-4 rounded-2xl border border-gray-50 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center space-x-4">
-                    <div className={clsx(
-                      "w-10 h-10 rounded-xl flex items-center justify-center text-white",
-                      survey.isActive ? "bg-indigo-600" : "bg-gray-400"
-                    )}>
-                      <ClipboardList size={20} />
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <h3 className="font-bold text-gray-900 text-sm">{survey.title}</h3>
-                        {!survey.isActive && (
-                          <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-[8px] font-bold rounded uppercase tracking-wider">INACTIVE</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-400 truncate max-w-[200px]">{survey.description}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <button 
-                      onClick={() => { setCurrentSurvey(survey); setIsEditingSurvey(true); }}
-                      className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                    <button 
-                      onClick={() => survey.id && setIsDeleting({ id: survey.id, type: 'survey' })}
-                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {surveys.length === 0 && (
-                <div className="py-12 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                  <p className="text-gray-400">등록된 설문조사가 없습니다.</p>
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Surveys List Removed as per user request */}
         </div>
 
         {/* Quick Settings / Stats */}
@@ -1209,13 +1173,24 @@ export default function Admin() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase">공유 이미지 (Thumbnail URL)</label>
-                    <input
-                      type="url"
-                      placeholder="카카오톡 공유 시 표시될 이미지 URL"
-                      value={siteSettings.seoImage || ''}
-                      onChange={e => setSiteSettings({ ...siteSettings, seoImage: e.target.value })}
-                      className="w-full px-4 py-2 rounded-xl border border-gray-100 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all text-sm"
-                    />
+                    <div className="relative">
+                      <input
+                        type="url"
+                        placeholder="카카오톡 공유 시 표시될 이미지 URL"
+                        value={siteSettings.seoImage || ''}
+                        onChange={e => setSiteSettings({ ...siteSettings, seoImage: e.target.value })}
+                        className="w-full px-4 py-2 pr-10 rounded-xl border border-gray-100 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all text-sm"
+                      />
+                      {siteSettings.seoImage && (
+                        <button
+                          type="button"
+                          onClick={() => setSiteSettings({ ...siteSettings, seoImage: '' })}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
                     {siteSettings.seoImage && (
                       <div className="mt-2 relative h-32 rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
                         <img 
@@ -1235,33 +1210,66 @@ export default function Admin() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase">Instagram URL</label>
-                    <input
-                      type="text"
-                      placeholder="https://instagram.com/..."
-                      value={siteSettings.instagramUrl || ''}
-                      onChange={e => setSiteSettings({ ...siteSettings, instagramUrl: e.target.value })}
-                      className="w-full px-4 py-2 rounded-xl border border-gray-100 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all text-sm"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="https://instagram.com/..."
+                        value={siteSettings.instagramUrl || ''}
+                        onChange={e => setSiteSettings({ ...siteSettings, instagramUrl: e.target.value })}
+                        className="w-full px-4 py-2 pr-10 rounded-xl border border-gray-100 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all text-sm"
+                      />
+                      {siteSettings.instagramUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setSiteSettings({ ...siteSettings, instagramUrl: '' })}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase">YouTube URL</label>
-                    <input
-                      type="text"
-                      placeholder="https://youtube.com/..."
-                      value={siteSettings.youtubeUrl || ''}
-                      onChange={e => setSiteSettings({ ...siteSettings, youtubeUrl: e.target.value })}
-                      className="w-full px-4 py-2 rounded-xl border border-gray-100 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all text-sm"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="https://youtube.com/..."
+                        value={siteSettings.youtubeUrl || ''}
+                        onChange={e => setSiteSettings({ ...siteSettings, youtubeUrl: e.target.value })}
+                        className="w-full px-4 py-2 pr-10 rounded-xl border border-gray-100 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all text-sm"
+                      />
+                      {siteSettings.youtubeUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setSiteSettings({ ...siteSettings, youtubeUrl: '' })}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase">Facebook URL</label>
-                    <input
-                      type="text"
-                      placeholder="https://facebook.com/..."
-                      value={siteSettings.facebookUrl || ''}
-                      onChange={e => setSiteSettings({ ...siteSettings, facebookUrl: e.target.value })}
-                      className="w-full px-4 py-2 rounded-xl border border-gray-100 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all text-sm"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="https://facebook.com/..."
+                        value={siteSettings.facebookUrl || ''}
+                        onChange={e => setSiteSettings({ ...siteSettings, facebookUrl: e.target.value })}
+                        className="w-full px-4 py-2 pr-10 rounded-xl border border-gray-100 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all text-sm"
+                      />
+                      {siteSettings.facebookUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setSiteSettings({ ...siteSettings, facebookUrl: '' })}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -1457,14 +1465,25 @@ export default function Admin() {
 
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">링크 (URL)</label>
-                <input
-                  type="url"
-                  required
-                  value={currentApp.link}
-                  onChange={e => setCurrentApp({ ...currentApp, link: e.target.value })}
-                  placeholder="https://..."
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                />
+                  <div className="relative">
+                    <input
+                      type="url"
+                      required
+                      value={currentApp.link}
+                      onChange={e => setCurrentApp({ ...currentApp, link: e.target.value })}
+                      placeholder="https://..."
+                      className="w-full px-4 py-3 pr-10 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                    />
+                    {currentApp.link && (
+                      <button
+                        type="button"
+                        onClick={() => setCurrentApp({ ...currentApp, link: '' })}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <X size={18} />
+                      </button>
+                    )}
+                  </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1581,14 +1600,25 @@ export default function Admin() {
 
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">Google 설문지 URL</label>
-                <input
-                  type="url"
-                  required
-                  value={currentSurvey.formUrl}
-                  onChange={e => setCurrentSurvey({ ...currentSurvey, formUrl: e.target.value })}
-                  placeholder="https://docs.google.com/forms/..."
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                />
+                  <div className="relative">
+                    <input
+                      type="url"
+                      required
+                      value={currentSurvey.formUrl}
+                      onChange={e => setCurrentSurvey({ ...currentSurvey, formUrl: e.target.value })}
+                      placeholder="https://docs.google.com/forms/..."
+                      className="w-full px-4 py-3 pr-10 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                    />
+                    {currentSurvey.formUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setCurrentSurvey({ ...currentSurvey, formUrl: '' })}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <X size={18} />
+                      </button>
+                    )}
+                  </div>
               </div>
 
               <div className="flex items-center space-x-3 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
@@ -1690,8 +1720,17 @@ export default function Admin() {
                       value={currentHighlight.imageUrl}
                       onChange={e => setCurrentHighlight({ ...currentHighlight, imageUrl: e.target.value })}
                       placeholder="또는 이미지 주소(URL) 입력"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none transition-all"
+                      className="w-full px-4 py-3 pr-10 rounded-xl border border-gray-200 focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none transition-all"
                     />
+                    {currentHighlight.imageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setCurrentHighlight({ ...currentHighlight, imageUrl: '' })}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <X size={18} />
+                      </button>
+                    )}
                   </div>
                   
                   {/* Image Preview */}
@@ -1744,6 +1783,140 @@ export default function Admin() {
                   type="submit"
                   disabled={isSaving}
                   className="flex-1 px-6 py-4 rounded-2xl bg-pink-600 text-white font-bold hover:bg-pink-700 transition-all shadow-lg shadow-pink-600/20 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="animate-spin" size={20} />
+                      <span>저장 중...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save size={20} />
+                      <span>저장하기</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isEditingNewsHighlight && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h2 className="text-xl font-bold text-gray-900">
+                {currentNewsHighlight.id ? '뉴스 하이라이트 수정' : '뉴스 하이라이트 추가'}
+              </h2>
+              <button onClick={() => setIsEditingNewsHighlight(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveNewsHighlight} className="p-8 space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">제목</label>
+                <input
+                  type="text"
+                  required
+                  value={currentNewsHighlight.title}
+                  onChange={e => setCurrentNewsHighlight({ ...currentNewsHighlight, title: e.target.value })}
+                  placeholder="뉴스 제목을 입력해 주세요"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">이미지 업로드 / URL</label>
+                <div className="flex flex-col space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <label className="flex-1 cursor-pointer">
+                      <div className="flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all group">
+                        {uploading ? (
+                          <div className="flex flex-col items-center space-y-2">
+                            <Loader2 className="animate-spin text-orange-500" size={20} />
+                            <span className="text-[10px] font-bold text-orange-500">{uploadProgress}%</span>
+                          </div>
+                        ) : (
+                          <>
+                            <Upload className="text-gray-400 group-hover:text-orange-500 mr-2" size={20} />
+                            <span className="text-sm font-medium text-gray-500 group-hover:text-orange-600">컴퓨터에서 파일 선택</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*"
+                          onChange={(e) => handleFileUpload(e, 'news_highlight')}
+                          disabled={uploading}
+                        />
+                      </div>
+                    </label>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="url"
+                      required
+                      value={currentNewsHighlight.imageUrl}
+                      onChange={e => setCurrentNewsHighlight({ ...currentNewsHighlight, imageUrl: e.target.value })}
+                      placeholder="또는 이미지 주소(URL) 입력"
+                      className="w-full px-4 py-3 pr-10 rounded-xl border border-gray-200 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
+                    />
+                    {currentNewsHighlight.imageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setCurrentNewsHighlight({ ...currentNewsHighlight, imageUrl: '' })}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <X size={18} />
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Image Preview */}
+                  {currentNewsHighlight.imageUrl && (
+                    <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-gray-100 bg-gray-50">
+                      <img 
+                        src={getDirectImageUrl(currentNewsHighlight.imageUrl)} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/800/450?grayscale';
+                        }}
+                      />
+                      <div className="absolute top-2 left-2 px-2 py-1 bg-black/50 backdrop-blur-md rounded text-[10px] font-bold text-white uppercase tracking-wider">
+                        미리보기
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">링크 (선택사항)</label>
+                <input
+                  type="text"
+                  value={currentNewsHighlight.link}
+                  onChange={e => setCurrentNewsHighlight({ ...currentNewsHighlight, link: e.target.value })}
+                  placeholder="클릭 시 이동할 링크를 입력해 주세요"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
+                />
+              </div>
+
+              <div className="pt-4 flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingNewsHighlight(false)}
+                  className="flex-1 px-6 py-4 rounded-2xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="flex-1 px-6 py-4 rounded-2xl bg-orange-600 text-white font-bold hover:bg-orange-700 transition-all shadow-lg shadow-orange-600/20 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSaving ? (
                     <>
@@ -1847,13 +2020,24 @@ export default function Admin() {
                         />
                       </div>
                     </label>
-                    <input
-                      type="url"
-                      value={currentPost.imageUrl}
-                      onChange={e => setCurrentPost({ ...currentPost, imageUrl: e.target.value })}
-                      placeholder="이미지, 유튜브, 또는 구글 문서 URL 입력"
-                      className="w-full px-4 py-2 text-sm rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
-                    />
+                    <div className="relative">
+                      <input
+                        type="url"
+                        value={currentPost.imageUrl}
+                        onChange={e => setCurrentPost({ ...currentPost, imageUrl: e.target.value })}
+                        placeholder="이미지, 유튜브, 또는 구글 문서 URL 입력"
+                        className="w-full px-4 py-2 pr-10 text-sm rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
+                      />
+                      {currentPost.imageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPost({ ...currentPost, imageUrl: '' })}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
                     <div className="mt-1 p-3 bg-blue-50 rounded-xl border border-blue-100">
                       <p className="text-[10px] text-blue-700 font-bold mb-1">
                         💡 구글 시트(PAPS 등) 모든 탭을 보이게 하려면?
@@ -1906,6 +2090,19 @@ export default function Admin() {
                   placeholder="활동 내용을 상세히 적어주세요..."
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all resize-none"
                 />
+              </div>
+
+              <div className="flex items-center space-x-3 p-4 bg-orange-50 rounded-2xl border border-orange-100">
+                <input
+                  type="checkbox"
+                  id="isHighlight"
+                  checked={currentPost.isHighlight}
+                  onChange={e => setCurrentPost({ ...currentPost, isHighlight: e.target.checked })}
+                  className="w-5 h-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                />
+                <label htmlFor="isHighlight" className="text-sm font-bold text-orange-900 cursor-pointer">
+                  홈 화면 하이라이트로 등록 (갤러리/뉴스 섹션 상단 노출)
+                </label>
               </div>
 
               <div className="pt-4 flex space-x-3">
@@ -2009,6 +2206,116 @@ export default function Admin() {
                 className="flex-1 px-6 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-all"
               >
                 삭제하기
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Visitor Stats Modal */}
+      {isViewingStats && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white rounded-[40px] p-8 max-w-4xl w-full shadow-2xl relative overflow-hidden"
+          >
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-500 to-indigo-500" />
+            
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600">
+                  <BarChart2 size={24} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900">방문자 통계</h2>
+                  <p className="text-sm text-gray-500">일자별 방문자 추이를 확인하세요.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsViewingStats(false)}
+                className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="bg-purple-50 p-6 rounded-3xl border border-purple-100">
+                <p className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-1">총 누적 방문자</p>
+                <p className="text-3xl font-black text-purple-900">{visitorStats?.totalCount || 0}</p>
+              </div>
+              <div className="bg-orange-50 p-6 rounded-3xl border border-orange-100">
+                <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-1">오늘 방문자</p>
+                <p className="text-3xl font-black text-orange-900">{visitorStats?.todayCount || 0}</p>
+              </div>
+              <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100">
+                <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">최근 7일 평균</p>
+                <p className="text-3xl font-black text-blue-900">
+                  {dailyStats.length > 0 
+                    ? Math.round(dailyStats.slice(-7).reduce((acc, curr) => acc + curr.count, 0) / Math.min(dailyStats.length, 7))
+                    : 0
+                  }
+                </p>
+              </div>
+            </div>
+
+            <div className="h-[300px] w-full bg-gray-50 rounded-3xl p-6 border border-gray-100">
+              {dailyStats.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dailyStats}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="date" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 10, fill: '#9ca3af' }}
+                      tickFormatter={(value) => value.split('-').slice(1).join('/')}
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 10, fill: '#9ca3af' }}
+                      allowDecimals={false}
+                    />
+                    <Tooltip 
+                      cursor={{ fill: '#f3f4f6' }}
+                      contentStyle={{ 
+                        borderRadius: '16px', 
+                        border: 'none', 
+                        boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="count" 
+                      radius={[4, 4, 0, 0]}
+                      name="방문자 수"
+                    >
+                      {dailyStats.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={index === dailyStats.length - 1 ? '#8b5cf6' : '#c4b5fd'} 
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                  <BarChart2 size={48} className="mb-2 opacity-20" />
+                  <p className="text-sm font-medium">데이터가 아직 없습니다.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-8 flex justify-end">
+              <button
+                onClick={() => setIsViewingStats(false)}
+                className="px-8 py-3 rounded-xl bg-gray-900 text-white font-bold hover:bg-gray-800 transition-all"
+              >
+                닫기
               </button>
             </div>
           </motion.div>

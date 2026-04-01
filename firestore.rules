@@ -184,6 +184,11 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    match /daily_stats/{date} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     match /users/{userId} {
       allow read: if isAuthenticated() && request.auth.uid == userId;
       allow write: if isAdmin();

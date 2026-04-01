@@ -13,6 +13,7 @@ export interface Post {
   updatedAt?: Timestamp;
   likesCount?: number;
   viewCount?: number;
+  isHighlight?: boolean;
 }
 
 export interface SiteSettings {
@@ -57,6 +58,8 @@ export interface Highlight {
   id?: string;
   imageUrl: string;
   title: string;
+  type?: 'gallery' | 'news';
+  link?: string;
   createdAt: Timestamp;
 }
 
