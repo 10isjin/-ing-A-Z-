@@ -45,6 +45,7 @@ export interface SiteSettings {
   seoDescription?: string;
   seoKeywords?: string;
   seoImage?: string;
+  qrCodeUrl?: string;
 }
 
 export interface UserProfile {

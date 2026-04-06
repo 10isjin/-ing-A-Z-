@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { auth, db, storage } from '../firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, serverTimestamp, Timestamp, getDocFromServer } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, uploadBytesResumable, UploadTask } from 'firebase/storage';
 import { Post, SiteSettings, Highlight, AppEntry, Survey } from '../types';
 import { getDirectImageUrl, getYoutubeId, isGoogleDoc, getGoogleDocEmbedUrl } from '../imageUtils';
 import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, LayoutDashboard, FileText, Settings, LogOut, Database, Star, Upload, Loader2, Check, Smartphone, Clock, Users, Eye, Table, Presentation, Shield, ClipboardList, BarChart2, Newspaper } from 'lucide-react';
@@ -117,6 +117,7 @@ export default function Admin() {
     seoDescription: '갈매중학교 체육 활동 게시 및 학교 소개를 위한 전문적인 웹사이트입니다.',
     seoKeywords: '갈매중학교, 체육, 스포츠, 학교스포츠클럽, 런치리그',
     seoImage: 'https://storage.googleapis.com/multimodal_ai_studio/as_storage/b3ihjs7i4dlulpnvu3n4kz/67d8d263-8822-4a02-8646-068d37452d3c.png',
+    qrCodeUrl: '',
   });
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [autoFaceBlur, setAutoFaceBlur] = useState<boolean>(true);
@@ -125,6 +126,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [currentUploadTask, setCurrentUploadTask] = useState<UploadTask | null>(null);
 
   const [isDeleting, setIsDeleting] = useState<{ id: string, type: 'post' | 'highlight' | 'app' | 'survey' } | null>(null);
   const [alertMessage, setAlertMessage] = useState<{ title: string, message: string, type: 'success' | 'error' } | null>(null);
@@ -293,7 +295,21 @@ export default function Admin() {
     });
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'post' | 'highlight' | 'news_highlight') => {
+  const handleCancelUpload = () => {
+    if (currentUploadTask) {
+      currentUploadTask.cancel();
+      setCurrentUploadTask(null);
+      setUploading(false);
+      setUploadProgress(0);
+      setAlertMessage({ 
+        title: '업로드 취소', 
+        message: '이미지 업로드가 취소되었습니다.', 
+        type: 'error' 
+      });
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'post' | 'highlight' | 'news_highlight' | 'qr_code') => {
     let file = e.target.files?.[0];
     if (!file || !user) return;
 
@@ -301,8 +317,8 @@ export default function Admin() {
     setUploadProgress(0);
 
     try {
-      // Automatic Face Blur
-      if (autoFaceBlur && file.type.startsWith('image/')) {
+      // Automatic Face Blur (Skip for QR codes)
+      if (autoFaceBlur && file.type.startsWith('image/') && type !== 'qr_code') {
         try {
           setAlertMessage({ 
             title: '얼굴 인식 중', 
@@ -352,6 +368,7 @@ export default function Admin() {
 
       const storageRef = ref(storage, `uploads/${Date.now()}_${file.name}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
+      setCurrentUploadTask(uploadTask);
 
       uploadTask.on('state_changed', 
         (snapshot) => {
@@ -360,12 +377,17 @@ export default function Admin() {
         }, 
         (error) => {
           console.error("Upload failed:", error);
-          setAlertMessage({ 
-            title: '업로드 실패', 
-            message: '이미지 업로드에 실패했습니다. 네트워크 상태를 확인하거나 이미지 주소(URL) 입력을 이용해 주세요.', 
-            type: 'error' 
-          });
+          if (error.code === 'storage/canceled') {
+            console.log("Upload was canceled by user");
+          } else {
+            setAlertMessage({ 
+              title: '업로드 실패', 
+              message: '이미지 업로드에 실패했습니다. 네트워크 상태를 확인하거나 이미지 주소(URL) 입력을 이용해 주세요.', 
+              type: 'error' 
+            });
+          }
           setUploading(false);
+          setCurrentUploadTask(null);
         }, 
         async () => {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
@@ -375,9 +397,12 @@ export default function Admin() {
             setCurrentHighlight(prev => ({ ...prev, imageUrl: downloadURL }));
           } else if (type === 'news_highlight') {
             setCurrentNewsHighlight(prev => ({ ...prev, imageUrl: downloadURL }));
+          } else if (type === 'qr_code') {
+            setSiteSettings(prev => ({ ...prev, qrCodeUrl: downloadURL }));
           }
           setUploading(false);
           setUploadProgress(0);
+          setCurrentUploadTask(null);
           setAlertMessage({ 
             title: '업로드 완료', 
             message: '이미지가 성공적으로 업로드되었습니다.', 
@@ -482,14 +507,24 @@ export default function Admin() {
     e.preventDefault();
     setIsSaving(true);
     try {
-      await updateDoc(doc(db, 'settings', 'global'), { ...siteSettings });
+      const finalSettings = {
+        ...siteSettings,
+        qrCodeUrl: convertDriveUrl(siteSettings.qrCodeUrl || ''),
+        seoImage: convertDriveUrl(siteSettings.seoImage || '')
+      };
+      await updateDoc(doc(db, 'settings', 'global'), finalSettings);
       setIsEditingSettings(false);
       setAlertMessage({ title: '저장 완료', message: '사이트 설정이 저장되었습니다.', type: 'success' });
     } catch (error) {
       // If document doesn't exist, setDoc instead
       try {
         const { setDoc } = await import('firebase/firestore');
-        await setDoc(doc(db, 'settings', 'global'), { ...siteSettings });
+        const finalSettings = {
+          ...siteSettings,
+          qrCodeUrl: convertDriveUrl(siteSettings.qrCodeUrl || ''),
+          seoImage: convertDriveUrl(siteSettings.seoImage || '')
+        };
+        await setDoc(doc(db, 'settings', 'global'), finalSettings);
         setIsEditingSettings(false);
         setAlertMessage({ title: '저장 완료', message: '사이트 설정이 저장되었습니다.', type: 'success' });
       } catch (innerError) {
@@ -1201,6 +1236,85 @@ export default function Admin() {
                         />
                       </div>
                     )}
+                    <div className="mt-1 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                      <p className="text-[10px] text-blue-700 font-medium">
+                        💡 구글 드라이브 이미지를 사용하려면 '공유' 설정에서 '모든 사용자'가 볼 수 있도록 설정한 후 링크를 입력해 주세요.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase">사이트 QR 코드</label>
+                    <div className="flex flex-col space-y-2">
+                      <label className="cursor-pointer">
+                        <div className="flex items-center justify-center px-4 py-2 border border-dashed border-gray-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all group">
+                          {uploading ? (
+                            <div className="flex items-center space-x-3">
+                              <div className="flex flex-col items-center space-y-1">
+                                <Loader2 className="animate-spin text-green-500" size={16} />
+                                <span className="text-[8px] font-bold text-green-500">{uploadProgress}%</span>
+                              </div>
+                              <button 
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleCancelUpload();
+                                }}
+                                className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors"
+                                title="업로드 취소"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <Upload className="text-gray-400 group-hover:text-green-500 mr-2" size={16} />
+                              <span className="text-xs font-medium text-gray-500 group-hover:text-green-600">QR 코드 파일 업로드</span>
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept="image/*"
+                            onChange={(e) => handleFileUpload(e, 'qr_code')}
+                            disabled={uploading}
+                          />
+                        </div>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="url"
+                          placeholder="또는 QR 코드 이미지 URL 직접 입력"
+                          value={siteSettings.qrCodeUrl || ''}
+                          onChange={e => setSiteSettings({ ...siteSettings, qrCodeUrl: e.target.value })}
+                          className="w-full px-4 py-2 pr-10 rounded-xl border border-gray-100 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all text-sm"
+                        />
+                        {siteSettings.qrCodeUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setSiteSettings({ ...siteSettings, qrCodeUrl: '' })}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {siteSettings.qrCodeUrl && (
+                      <div className="mt-2 relative h-32 w-32 rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
+                        <img 
+                          src={getDirectImageUrl(siteSettings.qrCodeUrl)} 
+                          alt="QR Preview" 
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    )}
+                    <div className="mt-1 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                      <p className="text-[10px] text-blue-700 font-medium">
+                        💡 구글 드라이브에 올린 QR 코드 이미지 링크도 사용할 수 있습니다.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1693,9 +1807,23 @@ export default function Admin() {
                     <label className="flex-1 cursor-pointer">
                       <div className="flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-200 rounded-xl hover:border-pink-500 hover:bg-pink-50 transition-all group">
                         {uploading ? (
-                          <div className="flex flex-col items-center space-y-2">
-                            <Loader2 className="animate-spin text-pink-500" size={20} />
-                            <span className="text-[10px] font-bold text-pink-500">{uploadProgress}%</span>
+                          <div className="flex items-center space-x-4">
+                            <div className="flex flex-col items-center space-y-2">
+                              <Loader2 className="animate-spin text-pink-500" size={20} />
+                              <span className="text-[10px] font-bold text-pink-500">{uploadProgress}%</span>
+                            </div>
+                            <button 
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleCancelUpload();
+                              }}
+                              className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors"
+                              title="업로드 취소"
+                            >
+                              <X size={16} />
+                            </button>
                           </div>
                         ) : (
                           <>
@@ -1834,9 +1962,23 @@ export default function Admin() {
                     <label className="flex-1 cursor-pointer">
                       <div className="flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all group">
                         {uploading ? (
-                          <div className="flex flex-col items-center space-y-2">
-                            <Loader2 className="animate-spin text-orange-500" size={20} />
-                            <span className="text-[10px] font-bold text-orange-500">{uploadProgress}%</span>
+                          <div className="flex items-center space-x-4">
+                            <div className="flex flex-col items-center space-y-2">
+                              <Loader2 className="animate-spin text-orange-500" size={20} />
+                              <span className="text-[10px] font-bold text-orange-500">{uploadProgress}%</span>
+                            </div>
+                            <button 
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleCancelUpload();
+                              }}
+                              className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors"
+                              title="업로드 취소"
+                            >
+                              <X size={16} />
+                            </button>
                           </div>
                         ) : (
                           <>
@@ -2001,9 +2143,23 @@ export default function Admin() {
                     <label className="cursor-pointer">
                       <div className="flex items-center justify-center px-4 py-2 border border-dashed border-gray-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all group">
                         {uploading ? (
-                          <div className="flex flex-col items-center space-y-1">
-                            <Loader2 className="animate-spin text-green-500" size={16} />
-                            <span className="text-[8px] font-bold text-green-500">{uploadProgress}%</span>
+                          <div className="flex items-center space-x-3">
+                            <div className="flex flex-col items-center space-y-1">
+                              <Loader2 className="animate-spin text-green-500" size={16} />
+                              <span className="text-[8px] font-bold text-green-500">{uploadProgress}%</span>
+                            </div>
+                            <button 
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleCancelUpload();
+                              }}
+                              className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors"
+                              title="업로드 취소"
+                            >
+                              <X size={14} />
+                            </button>
                           </div>
                         ) : (
                           <>

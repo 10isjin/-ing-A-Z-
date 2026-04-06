@@ -24,7 +24,8 @@ export default function Footer() {
     stat3Label: '',
     stat3Value: '',
     stat4Label: '',
-    stat4Value: ''
+    stat4Value: '',
+    qrCodeUrl: ''
   });
 
   useEffect(() => {
@@ -101,6 +102,21 @@ export default function Footer() {
               )}
             </ul>
           </div>
+
+          {siteSettings.qrCodeUrl && (
+            <div className="flex flex-col items-center md:items-start">
+              <h3 className="font-bold text-gray-900 mb-6">모바일 접속</h3>
+              <div className="bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">
+                <img 
+                  src={siteSettings.qrCodeUrl} 
+                  alt="Site QR Code" 
+                  className="w-24 h-24 object-contain"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <p className="mt-3 text-[10px] text-gray-400 font-medium">QR 코드를 스캔하여 접속하세요</p>
+            </div>
+          )}
         </div>
         
         <div className="pt-8 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4">

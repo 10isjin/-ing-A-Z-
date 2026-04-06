@@ -31,7 +31,8 @@ export default function Home() {
     stat3Label: '만족도',
     stat3Value: '-',
     stat4Label: '연간 행사',
-    stat4Value: '-'
+    stat4Value: '-',
+    qrCodeUrl: ''
   });
   const [loading, setLoading] = useState(true);
 
@@ -425,6 +426,33 @@ export default function Home() {
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
         </motion.div>
       </section>
+
+      {/* QR Code Section */}
+      {siteSettings.qrCodeUrl && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-gray-50 rounded-[3rem] p-12 border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-12">
+            <div className="max-w-md text-center md:text-left">
+              <h2 className="text-3xl font-black text-gray-900 mb-4">모바일로 더 편하게!</h2>
+              <p className="text-gray-500 leading-relaxed">
+                옆에 있는 QR 코드를 스캔하면 스마트폰에서도 갈매중 체육 활동 소식을 바로 확인할 수 있습니다. 친구들과 함께 공유해보세요!
+              </p>
+            </div>
+            <div className="flex flex-col items-center space-y-4">
+              <div className="bg-white p-4 rounded-[2rem] shadow-2xl border border-gray-100 hover:scale-105 transition-transform duration-500">
+                <img 
+                  src={siteSettings.qrCodeUrl} 
+                  alt="Site QR Code" 
+                  className="w-48 h-48 object-contain"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <div className="px-4 py-2 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase tracking-widest">
+                Scan to Visit
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
     </div>
   );
