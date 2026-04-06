@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Calendar, User, ArrowLeft, Share2, Tag, X, Maximize2, FileText, Download, ThumbsUp, Eye, ClipboardList } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { onAuthStateChanged } from 'firebase/auth';
 
 export default function PostDetail() {
@@ -381,6 +382,7 @@ export default function PostDetail() {
       <div className={`prose prose-lg ${themeClasses.prose} max-w-none mb-16`}>
         <div className="markdown-body">
           <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
             components={{
               img: ({ node, ...props }) => (
                 <img
