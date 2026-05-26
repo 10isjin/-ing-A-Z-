@@ -539,6 +539,12 @@ export default function Admin() {
 
     try {
       const { id, ...postData } = currentPost;
+
+      // Sync imageUrls for non-gallery posts to avoid showing old stale files in details
+      if (postData.type !== 'gallery') {
+        postData.imageUrls = finalImageUrl ? [finalImageUrl] : [];
+      }
+
       if (id) {
         // Update
         const postRef = doc(db, 'posts', id);

@@ -187,7 +187,9 @@ export default function PostDetail() {
     }
   };
 
-  const postImages = post.imageUrls && post.imageUrls.length > 0
+  const isGallery = post.type === 'gallery';
+
+  const postImages = isGallery && post.imageUrls && post.imageUrls.length > 0
     ? post.imageUrls
     : (post.imageUrl ? [post.imageUrl] : []);
 
@@ -232,8 +234,6 @@ export default function PostDetail() {
     }
   };
 
-  const isGallery = post.type === 'gallery';
-  
   const themeClasses = isGallery 
     ? {
         text: 'text-pink-600',
