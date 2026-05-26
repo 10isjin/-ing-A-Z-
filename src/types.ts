@@ -7,6 +7,7 @@ export interface Post {
   category: 'class' | 'lunch' | 'sports_club' | 'festival' | 'project' | 'health_fitness' | 'oasis' | 'paps' | 'character';
   type: 'gallery' | 'news' | 'notice';
   imageUrl?: string;
+  imageUrls?: string[];
   authorId: string;
   authorName?: string;
   createdAt: Timestamp;

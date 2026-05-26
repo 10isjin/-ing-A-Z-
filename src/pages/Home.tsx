@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 
 export default function Home() {
+  const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [postGalleryHighlights, setPostGalleryHighlights] = useState<Highlight[]>([]);
@@ -40,6 +41,7 @@ export default function Home() {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
     const unsubscribePosts = onSnapshot(q, (snapshot) => {
       const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+      setAllPosts(posts);
       
       // Filter latest news for the news section
       const allNews = posts.filter(post => post.type === 'news' || post.type === 'notice');
@@ -59,7 +61,7 @@ export default function Home() {
         type: p.type as any,
         createdAt: p.createdAt,
         isHighlight: p.isHighlight || false,
-        link: `/post/${p.id}`
+        link: `/posts/${p.id}`
       }));
 
       setPostGalleryHighlights(galleryPostHighlights);
@@ -155,6 +157,35 @@ export default function Home() {
     { icon: <Heart className="text-pink-500" />, label: siteSettings.stat3Label, value: siteSettings.stat3Value },
     { icon: <Sparkles className="text-green-500" />, label: siteSettings.stat4Label, value: siteSettings.stat4Value },
   ];
+
+  const getHighlightLink = (h: any) => {
+    if (h.isDefault) {
+      return null;
+    }
+
+    if (h.link) {
+      return h.link.replace(/^\/post\//, '/posts/');
+    }
+
+    const matchedPost = allPosts.find(p => {
+      if (p.imageUrl && h.imageUrl && p.imageUrl.trim() === h.imageUrl.trim()) {
+        return true;
+      }
+      if (p.imageUrls && h.imageUrl && p.imageUrls.some(url => url.trim() === h.imageUrl.trim())) {
+        return true;
+      }
+      if (p.title && h.title && p.title.trim() === h.title.trim()) {
+        return true;
+      }
+      return false;
+    });
+
+    if (matchedPost) {
+      return `/posts/${matchedPost.id}`;
+    }
+
+    return '/posts';
+  };
 
   return (
     <div className="space-y-12 sm:space-y-24 pb-24">
@@ -310,41 +341,53 @@ export default function Home() {
           <p className="text-[10px] sm:text-sm text-gray-500 whitespace-nowrap sm:whitespace-normal">에너지 넘치는 갈매중 학생들의 모습입니다.</p>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {displayHighlights.map((h, idx) => (
-            <motion.div 
-              key={h.id}
-              whileHover={{ scale: 1.02 }}
-              className={`relative group ${idx % 2 === 1 ? 'md:mt-8' : ''}`}
-            >
-              {isGoogleDoc(h.imageUrl) ? (
-                <div className="w-full h-64 bg-gray-50 rounded-3xl shadow-lg border border-gray-100 flex flex-col items-center justify-center p-6 space-y-4">
-                  <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center">
-                    {h.imageUrl.includes('spreadsheets') ? (
-                      <Table className="text-green-600" size={32} />
-                    ) : h.imageUrl.includes('presentation') ? (
-                      <Presentation className="text-orange-500" size={32} />
-                    ) : (
-                      <FileText className="text-blue-500" size={32} />
-                    )}
+          {displayHighlights.map((h, idx) => {
+            const link = getHighlightLink(h);
+            const content = (
+              <motion.div 
+                whileHover={link ? { scale: 1.02 } : undefined}
+                className={`relative group h-full ${idx % 2 === 1 ? 'md:mt-8' : ''} ${link ? 'cursor-pointer' : ''}`}
+              >
+                {isGoogleDoc(h.imageUrl) ? (
+                  <div className="w-full h-64 bg-gray-50 rounded-3xl shadow-lg border border-gray-100 flex flex-col items-center justify-center p-6 space-y-4">
+                    <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center">
+                      {h.imageUrl.includes('spreadsheets') ? (
+                        <Table className="text-green-600" size={32} />
+                      ) : h.imageUrl.includes('presentation') ? (
+                        <Presentation className="text-orange-500" size={32} />
+                      ) : (
+                        <FileText className="text-blue-500" size={32} />
+                      )}
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 opacity-60">
+                      {h.imageUrl.includes('spreadsheets') ? 'Google Sheets' : 
+                       h.imageUrl.includes('presentation') ? 'Google Slides' : 'Google Docs'}
+                    </span>
                   </div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 opacity-60">
-                    {h.imageUrl.includes('spreadsheets') ? 'Google Sheets' : 
-                     h.imageUrl.includes('presentation') ? 'Google Slides' : 'Google Docs'}
-                  </span>
+                ) : (
+                  <img 
+                    src={getDirectImageUrl(h.imageUrl)} 
+                    alt={h.title} 
+                    className="w-full h-64 object-cover rounded-3xl shadow-lg"
+                    referrerPolicy="no-referrer"
+                  />
+                )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl flex items-end p-6">
+                  <p className="text-white font-bold text-sm">{h.title}</p>
                 </div>
-              ) : (
-                <img 
-                  src={getDirectImageUrl(h.imageUrl)} 
-                  alt={h.title} 
-                  className="w-full h-64 object-cover rounded-3xl shadow-lg"
-                  referrerPolicy="no-referrer"
-                />
-              )}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl flex items-end p-6">
-                <p className="text-white font-bold text-sm">{h.title}</p>
+              </motion.div>
+            );
+
+            return link ? (
+              <Link key={h.id || idx} to={link} className="block h-full">
+                {content}
+              </Link>
+            ) : (
+              <div key={h.id || idx} className="block h-full">
+                {content}
               </div>
-            </motion.div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -388,42 +431,42 @@ export default function Home() {
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[3rem] p-10 md:p-16 text-white relative overflow-hidden group"
+          className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 md:p-10 text-white relative overflow-hidden group"
         >
-          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
-            <div className="max-w-xl text-center md:text-left">
-              <div className="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-white/10 border border-white/10 backdrop-blur-md text-blue-100 text-xs font-bold mb-6">
-                <Sparkles size={16} />
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12">
+            <div className="max-w-xl text-center md:text-left flex-1">
+              <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/10 backdrop-blur-md text-blue-100 text-xs font-bold mb-4">
+                <Sparkles size={14} className="text-blue-300" />
                 <span>자기주도 체육 학습</span>
               </div>
-              <h2 className="text-4xl md:text-5xl font-black mb-6 leading-tight">
+              <h2 className="text-2xl sm:text-3xl font-black mb-4 leading-tight">
                 스마트하게 운동하자!<br />
                 <span className="text-blue-200">추천 Apps</span>
               </h2>
-              <p className="text-lg text-blue-100 mb-10 leading-relaxed">
+              <p className="text-sm text-blue-100 mb-6 leading-relaxed">
                 학생들이 스스로 운동하고 건강을 관리할 수 있도록 도와주는 유용한 앱들을 소개합니다. 지금 바로 확인해보세요!
               </p>
               <Link 
                 to="/apps" 
-                className="inline-flex items-center justify-center px-10 py-5 rounded-2xl bg-white text-blue-700 font-bold hover:bg-blue-50 transition-all shadow-xl group/btn"
+                className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-white text-blue-700 text-sm font-bold hover:bg-blue-50 transition-all shadow-md hover:shadow-lg group/btn"
               >
                 <span>Apps</span>
-                <ArrowRight size={20} className="ml-2 group-hover/btn:translate-x-1 transition-transform" />
+                <ArrowRight size={18} className="ml-2 group-hover/btn:translate-x-1 transition-transform" />
               </Link>
             </div>
-            <div className="relative w-full max-w-sm">
-              <div className="aspect-[4/5] bg-white/10 backdrop-blur-xl rounded-[2.5rem] border border-white/20 p-8 shadow-2xl transform rotate-3 group-hover:rotate-0 transition-transform duration-500">
-                <div className="w-full h-full bg-blue-500/20 rounded-2xl flex items-center justify-center">
-                  <Smartphone size={120} className="text-white/40" />
+            <div className="relative w-44 sm:w-48 md:w-52 shrink-0">
+              <div className="aspect-[4/5] bg-white/10 backdrop-blur-md rounded-[1.75rem] border border-white/20 p-6 shadow-xl transform rotate-3 group-hover:rotate-0 transition-transform duration-500 flex items-center justify-center">
+                <div className="w-full h-full bg-blue-500/20 rounded-xl flex items-center justify-center">
+                  <Smartphone size={80} className="text-white/40" />
                 </div>
               </div>
-              <div className="absolute -top-6 -right-6 w-24 h-24 bg-pink-500/20 rounded-full blur-2xl" />
-              <div className="absolute -bottom-6 -left-6 w-32 h-32 bg-green-500/20 rounded-full blur-2xl" />
+              <div className="absolute -top-4 -right-4 w-16 h-16 bg-pink-500/20 rounded-full blur-xl" />
+              <div className="absolute -bottom-4 -left-4 w-20 h-20 bg-green-500/20 rounded-full blur-xl" />
             </div>
           </div>
           {/* Background decoration */}
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+          <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-72 h-72 bg-blue-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
         </motion.div>
       </section>
 

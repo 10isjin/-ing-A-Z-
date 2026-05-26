@@ -6,7 +6,7 @@ import { Post } from '../types';
 import { getDirectImageUrl, getYoutubeId, getGoogleDocEmbedUrl, isGoogleDoc } from '../imageUtils';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Calendar, User, ArrowLeft, Share2, Tag, X, Maximize2, FileText, Download, ThumbsUp, Eye, ClipboardList } from 'lucide-react';
+import { Calendar, User, ArrowLeft, Share2, Tag, X, Maximize2, FileText, Download, ThumbsUp, Eye, ClipboardList, ChevronLeft, ChevronRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -17,6 +17,7 @@ export default function PostDetail() {
   const [loading, setLoading] = useState(true);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [modalImageUrl, setModalImageUrl] = useState('');
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -186,32 +187,47 @@ export default function PostDetail() {
     }
   };
 
-  const handleDownload = async () => {
-    if (!post.imageUrl) return;
+  const postImages = post.imageUrls && post.imageUrls.length > 0
+    ? post.imageUrls
+    : (post.imageUrl ? [post.imageUrl] : []);
 
-    const url = post.imageUrl.trim();
-    const driveIdMatch = url.match(/(?:id=|\/d\/|file\/d\/|open\?id=|docs\.google\.com\/.*?\/d\/)([\w-]{25,})[^\w-]?/);
+  const activeImageUrl = postImages[activeImageIndex] || post.imageUrl || '';
+
+  const handlePrevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActiveImageIndex((prev) => (prev === 0 ? postImages.length - 1 : prev - 1));
+  };
+
+  const handleNextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActiveImageIndex((prev) => (prev === postImages.length - 1 ? 0 : prev + 1));
+  };
+
+  const handleDownload = async () => {
+    const urlToDownload = activeImageUrl.trim();
+    if (!urlToDownload) return;
+
+    const driveIdMatch = urlToDownload.match(/(?:id=|\/d\/|file\/d\/|open\?id=|docs\.google\.com\/.*?\/d\/)([\w-]{25,})[^\w-]?/);
     
     if (driveIdMatch && driveIdMatch[1]) {
       const fileId = driveIdMatch[1];
       const downloadUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
       window.open(downloadUrl, '_blank');
     } else {
-      // For other direct links, try to download via fetch or just open in new tab
       try {
-        const response = await fetch(url);
+        const response = await fetch(urlToDownload);
         const blob = await response.blob();
         const blobUrl = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = blobUrl;
-        link.download = post.title || 'download';
+        link.download = `${post.title || 'download'}_${activeImageIndex + 1}`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(blobUrl);
       } catch (error) {
         console.error('Download failed, opening in new tab:', error);
-        window.open(url, '_blank');
+        window.open(urlToDownload, '_blank');
       }
     }
   };
@@ -222,6 +238,7 @@ export default function PostDetail() {
     ? {
         text: 'text-pink-600',
         textLight: 'text-pink-500',
+        border: 'border-pink-500',
         hoverText: 'hover:text-pink-600',
         bg: 'bg-pink-600',
         bgHover: 'hover:bg-pink-700',
@@ -231,6 +248,7 @@ export default function PostDetail() {
     : {
         text: 'text-green-600',
         textLight: 'text-green-500',
+        border: 'border-green-500',
         hoverText: 'hover:text-green-600',
         bg: 'bg-green-600',
         bgHover: 'hover:bg-green-700',
@@ -292,21 +310,21 @@ export default function PostDetail() {
         </div>
       </header>
 
-      <div className={`relative group ${isGoogleDoc(post.imageUrl) ? 'min-h-[700px]' : 'aspect-video'} rounded-[40px] overflow-hidden mb-12 shadow-2xl ${themeClasses.shadow}`}>
-        {getYoutubeId(post.imageUrl) ? (
+      <div className={`relative group ${isGoogleDoc(activeImageUrl) ? 'min-h-[700px]' : 'aspect-video'} rounded-[40px] overflow-hidden shadow-2xl ${themeClasses.shadow}`}>
+        {getYoutubeId(activeImageUrl) ? (
           <iframe
-            src={`https://www.youtube.com/embed/${getYoutubeId(post.imageUrl)}`}
+            src={`https://www.youtube.com/embed/${getYoutubeId(activeImageUrl)}`}
             title={post.title}
             className="w-full h-full"
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
-        ) : isGoogleDoc(post.imageUrl) ? (
+        ) : isGoogleDoc(activeImageUrl) ? (
           <div className="w-full h-full bg-white flex flex-col">
             <div className="bg-gray-50 px-4 py-2 border-b border-gray-100 flex items-center justify-between">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                {post.imageUrl?.includes('forms') || post.imageUrl?.includes('forms.gle') ? (
+                {activeImageUrl?.includes('forms') || activeImageUrl?.includes('forms.gle') ? (
                   <>
                     <ClipboardList size={14} className={themeClasses.text} />
                     Google Form
@@ -319,7 +337,7 @@ export default function PostDetail() {
                 )}
               </span>
               <a 
-                href={post.imageUrl} 
+                href={activeImageUrl} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className={`text-xs font-bold ${themeClasses.text} hover:underline`}
@@ -328,7 +346,7 @@ export default function PostDetail() {
               </a>
             </div>
             <iframe
-              src={getGoogleDocEmbedUrl(post.imageUrl) || post.imageUrl}
+              src={getGoogleDocEmbedUrl(activeImageUrl) || activeImageUrl}
               title={post.title}
               className="w-full flex-grow min-h-[600px]"
               frameBorder="0"
@@ -339,13 +357,13 @@ export default function PostDetail() {
           <>
             {!imageError ? (
               <img 
-                src={getDirectImageUrl(post.imageUrl) || `https://picsum.photos/seed/${post.id}/1200/675`} 
+                src={getDirectImageUrl(activeImageUrl) || `https://picsum.photos/seed/${post.id}/1200/675`} 
                 alt={post.title}
                 className="w-full h-full object-cover cursor-zoom-in"
                 referrerPolicy="no-referrer"
                 onError={() => setImageError(true)}
                 onClick={() => {
-                  setModalImageUrl(getDirectImageUrl(post.imageUrl) || `https://picsum.photos/seed/${post.id}/1200/675`);
+                  setModalImageUrl(getDirectImageUrl(activeImageUrl) || `https://picsum.photos/seed/${post.id}/1200/675`);
                   setIsImageModalOpen(true);
                 }}
               />
@@ -354,7 +372,7 @@ export default function PostDetail() {
                 <FileText size={64} className="mb-4 opacity-20" />
                 <p className="text-lg font-medium mb-4">이미지를 불러올 수 없거나 문서 파일입니다.</p>
                 <a 
-                  href={post.imageUrl} 
+                  href={activeImageUrl} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className={`px-6 py-3 ${themeClasses.bg} text-white rounded-xl font-bold ${themeClasses.bgHover} transition-colors flex items-center gap-2`}
@@ -367,7 +385,7 @@ export default function PostDetail() {
             {!imageError && (
               <button 
                 onClick={() => {
-                  setModalImageUrl(getDirectImageUrl(post.imageUrl) || `https://picsum.photos/seed/${post.id}/1200/675`);
+                  setModalImageUrl(getDirectImageUrl(activeImageUrl) || `https://picsum.photos/seed/${post.id}/1200/675`);
                   setIsImageModalOpen(true);
                 }}
                 className="absolute bottom-6 right-6 w-12 h-12 bg-white/90 backdrop-blur-sm rounded-2xl flex items-center justify-center text-gray-900 shadow-xl opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
@@ -375,9 +393,64 @@ export default function PostDetail() {
                 <Maximize2 size={20} />
               </button>
             )}
+            
+            {/* Slider Navigation Arrows */}
+            {postImages.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={handlePrevImage}
+                  className="absolute left-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all hover:scale-110 shadow-lg"
+                >
+                  <ChevronLeft size={24} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextImage}
+                  className="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all hover:scale-110 shadow-lg"
+                >
+                  <ChevronRight size={24} />
+                </button>
+                
+                {/* Counter Badge */}
+                <div className="absolute top-6 right-6 px-3 py-1 bg-black/50 backdrop-blur-sm rounded-full text-xs font-bold text-white uppercase tracking-wider">
+                  {activeImageIndex + 1} / {postImages.length}
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
+
+      {/* Multiple Images Sub-Thumbnails Grid */}
+      {postImages.length > 1 && (
+        <div className="flex items-center justify-center gap-3 overflow-x-auto pb-6 max-w-full mb-12 custom-scrollbar">
+          {postImages.map((imgUrl, idx) => (
+            <button
+              key={idx}
+              onClick={() => {
+                setActiveImageIndex(idx);
+                setImageError(false);
+              }}
+              className={`relative w-20 h-20 rounded-2xl overflow-hidden border-2 transition-all flex-shrink-0 ${
+                idx === activeImageIndex 
+                  ? `border-green-500 scale-105 shadow-md` 
+                  : 'border-transparent scale-100 hover:scale-102 opacity-70 hover:opacity-100'
+              }`}
+            >
+              <img 
+                src={getDirectImageUrl(imgUrl)} 
+                alt={`${post.title} Thumbnail ${idx + 1}`} 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/200/200?grayscale';
+                }}
+              />
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className={`prose prose-lg ${themeClasses.prose} max-w-none mb-16`}>
         <div className="markdown-body">

@@ -60,6 +60,7 @@ export default function Admin() {
     category: 'class',
     type: 'gallery',
     imageUrl: '',
+    imageUrls: [],
     isHighlight: false
   });
   const [currentHighlight, setCurrentHighlight] = useState<Partial<Highlight>>({
@@ -421,6 +422,108 @@ export default function Admin() {
     }
   };
 
+  const handlePostMultipleImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !user) return;
+
+    setUploading(true);
+    setUploadProgress(0);
+
+    const uploadedUrls: string[] = [];
+    const totalFiles = files.length;
+
+    try {
+      for (let i = 0; i < totalFiles; i++) {
+        let file = files[i];
+        
+        setAlertMessage({ 
+          title: `이미지 훈련/업로드 중 (${i + 1}/${totalFiles})`, 
+          message: `${file.name} 파일을 분석 및 수정 중입니다.`, 
+          type: 'success' 
+        });
+
+        // Auto face blur
+        if (autoFaceBlur && file.type.startsWith('image/')) {
+          try {
+            setAlertMessage({ 
+              title: `얼굴 인식 및 초상권 처리 (${i + 1}/${totalFiles})`, 
+              message: `${file.name}의 개인정보 보호 조치 중입니다...`, 
+              type: 'success' 
+            });
+            const result = await processFile(file);
+            file = result.file;
+          } catch (err) {
+            console.error("Face blur failed for:", file.name, err);
+          }
+        }
+
+        // Size check (Max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          setAlertMessage({ 
+            title: '파일 크기 초과', 
+            message: `${file.name} 파일이 너무 큽니다. (최대 5MB) 해당 파일은 스킵하고 진행합니다.`, 
+            type: 'error' 
+          });
+          continue;
+        }
+
+        const storageRef = ref(storage, `uploads/${Date.now()}_batch_${i}_${file.name}`);
+        const uploadTask = uploadBytesResumable(storageRef, file);
+        setCurrentUploadTask(uploadTask);
+
+        const uploadPromise = new Promise<string>((resolve, reject) => {
+          uploadTask.on('state_changed', 
+            (snapshot) => {
+              const fileProgress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              setUploadProgress(Math.round(fileProgress));
+            }, 
+            (error) => reject(error), 
+            async () => {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              resolve(downloadURL);
+            }
+          );
+        });
+
+        try {
+          const url = await uploadPromise;
+          uploadedUrls.push(url);
+        } catch (uploadErr) {
+          console.error(`Failed to upload ${file.name}:`, uploadErr);
+        }
+      }
+
+      if (uploadedUrls.length > 0) {
+        setCurrentPost(prev => {
+          const existingUrls = prev.imageUrls || (prev.imageUrl ? [prev.imageUrl] : []);
+          const updatedUrls = [...existingUrls, ...uploadedUrls];
+          return {
+            ...prev,
+            imageUrl: prev.imageUrl || updatedUrls[0],
+            imageUrls: updatedUrls
+          };
+        });
+
+        setAlertMessage({ 
+          title: '업로드 완료', 
+          message: `${uploadedUrls.length}개의 가치 있는 갤러리 이미지가 성공적으로 업로드되었습니다.`, 
+          type: 'success' 
+        });
+      }
+    } catch (err) {
+      console.error("Multiple files upload failed:", err);
+      setAlertMessage({ 
+        title: '업로드 실패', 
+        message: '이미지 업로드 중 오류가 발생했습니다.', 
+        type: 'error' 
+      });
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+      setCurrentUploadTask(null);
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentPost.title || !currentPost.content) {
@@ -455,7 +558,7 @@ export default function Admin() {
         });
       }
       setIsEditing(false);
-      setCurrentPost({ title: '', content: '', category: 'class', type: 'gallery', imageUrl: '', isHighlight: false });
+      setCurrentPost({ title: '', content: '', category: 'class', type: 'gallery', imageUrl: '', imageUrls: [], isHighlight: false });
       setAlertMessage({ title: '저장 완료', message: '게시글이 성공적으로 저장되었습니다.', type: 'success' });
     } catch (error) {
       console.error("Save error:", error);
@@ -711,7 +814,10 @@ export default function Admin() {
   };
 
   const handleEdit = (post: Post) => {
-    setCurrentPost(post);
+    setCurrentPost({
+      ...post,
+      imageUrls: post.imageUrls || (post.imageUrl ? [post.imageUrl] : [])
+    });
     setIsEditing(true);
   };
 
@@ -745,7 +851,7 @@ export default function Admin() {
             <span>앱 추가</span>
           </button>
           <button
-            onClick={() => { setIsEditing(true); setCurrentPost({ title: '', content: '', category: 'class', type: 'gallery', imageUrl: '' }); }}
+            onClick={() => { setIsEditing(true); setCurrentPost({ title: '', content: '', category: 'class', type: 'gallery', imageUrl: '', imageUrls: [] }); }}
             className="inline-flex items-center px-6 py-3 rounded-full bg-green-600 text-white font-bold hover:bg-green-700 transition-all shadow-lg shadow-green-600/20"
           >
             <Plus size={20} className="mr-2" />
@@ -2139,98 +2245,262 @@ export default function Admin() {
                 )}
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">이미지 업로드 / URL</label>
-                  <div className="flex flex-col space-y-2">
-                    <label className="cursor-pointer">
-                      <div className="flex items-center justify-center px-4 py-2 border border-dashed border-gray-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all group">
-                        {uploading ? (
-                          <div className="flex items-center space-x-3">
-                            <div className="flex flex-col items-center space-y-1">
-                              <Loader2 className="animate-spin text-green-500" size={16} />
-                              <span className="text-[8px] font-bold text-green-500">{uploadProgress}%</span>
+                  <div className="flex flex-col space-y-3">
+                    {/* Multi Upload for Gallery Posts */}
+                    {currentPost.type === 'gallery' ? (
+                      <div className="space-y-4">
+                        <label className="cursor-pointer">
+                          <div className="flex items-center justify-center px-4 py-4 border border-dashed border-gray-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all group">
+                            {uploading ? (
+                              <div className="flex items-center space-x-3">
+                                <div className="flex flex-col items-center space-y-1">
+                                  <Loader2 className="animate-spin text-green-500" size={16} />
+                                  <span className="text-[8px] font-bold text-green-500">{uploadProgress}%</span>
+                                </div>
+                                <button 
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleCancelUpload();
+                                  }}
+                                  className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors"
+                                  title="업로드 취소"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="text-center">
+                                <Upload className="text-gray-400 group-hover:text-green-500 mx-auto mb-1.5 animate-bounce" size={20} />
+                                <span className="text-xs font-bold text-gray-500 group-hover:text-green-600 block">여러 사진 선택 (파일 업로드)</span>
+                                <span className="text-[10px] text-gray-400 mt-0.5 block">여러 장의 사진을 게시물에 한번에 등록하세요. (가족/체육대회 대표사진 앨범 생성)</span>
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="image/*"
+                              multiple
+                              onChange={handlePostMultipleImagesUpload}
+                              disabled={uploading}
+                            />
+                          </div>
+                        </label>
+
+                        {/* List Grid View in Post editor modal */}
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black text-gray-400 uppercase tracking-wider block">선택된 갤러리 이미지 목록</label>
+                          {currentPost.imageUrls && currentPost.imageUrls.length > 0 ? (
+                            <div className="grid grid-cols-4 gap-3">
+                              {currentPost.imageUrls.map((url, imgIndex) => {
+                                const isMain = currentPost.imageUrl === url;
+                                return (
+                                  <div key={imgIndex} className="relative aspect-square rounded-xl overflow-hidden group border border-gray-100 bg-gray-50">
+                                    <img 
+                                      src={getDirectImageUrl(url)} 
+                                      alt={`Gallery upload ${imgIndex}`} 
+                                      className="w-full h-full object-cover"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                    
+                                    {/* Delete Image button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const filtered = currentPost.imageUrls?.filter((_, index) => index !== imgIndex) || [];
+                                        const isMainDeleted = isMain;
+                                        const nextMain = isMainDeleted 
+                                          ? (filtered.length > 0 ? filtered[0] : '') 
+                                          : currentPost.imageUrl;
+                                        
+                                        setCurrentPost(prev => ({
+                                          ...prev,
+                                          imageUrl: nextMain,
+                                          imageUrls: filtered
+                                        }));
+                                      }}
+                                      className="absolute top-1 right-1 p-1 bg-red-500/80 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-sm z-10"
+                                      title="이미지 삭제"
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                    
+                                    {/* Main preview selection badge */}
+                                    {isMain ? (
+                                      <div className="absolute bottom-0 left-0 right-0 bg-green-600 text-white text-[9px] font-bold text-center py-0.5 shadow-sm">
+                                        대표 이미지
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => setCurrentPost(prev => ({ ...prev, imageUrl: url }))}
+                                        className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px] font-bold"
+                                      >
+                                        대표 지정
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
-                            <button 
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleCancelUpload();
+                          ) : (
+                            <div className="text-center py-6 bg-gray-50 border border-dashed border-gray-200 rounded-2xl">
+                              <p className="text-xs text-gray-400">등록된 앨범 이미지가 없습니다. 위 버튼을 눌러 여러 장의 관련 사진을 올려주세요.</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* URL Direct Add section inside gallery */}
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-gray-400 font-bold uppercase">이미지 URL 직접 추가</label>
+                          <div className="flex gap-2">
+                            <input
+                              type="url"
+                              id="galleryDirectUrl"
+                              placeholder="추가하고 싶은 이미지 URL 입력 후 엔터"
+                              className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-100 focus:ring-1 focus:ring-green-500/20 focus:border-green-500 outline-none"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const input = e.currentTarget;
+                                  const val = input.value.trim();
+                                  if (val) {
+                                    const directVal = getDirectImageUrl(val);
+                                    setCurrentPost(prev => {
+                                      const existing = prev.imageUrls || (prev.imageUrl ? [prev.imageUrl] : []);
+                                      return {
+                                        ...prev,
+                                        imageUrl: prev.imageUrl || directVal,
+                                        imageUrls: [...existing, directVal]
+                                      };
+                                    });
+                                    input.value = '';
+                                  }
+                                }
                               }}
-                              className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors"
-                              title="업로드 취소"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const input = document.getElementById('galleryDirectUrl') as HTMLInputElement;
+                                const val = input?.value.trim() || '';
+                                if (val) {
+                                  const directVal = getDirectImageUrl(val);
+                                  setCurrentPost(prev => {
+                                    const existing = prev.imageUrls || (prev.imageUrl ? [prev.imageUrl] : []);
+                                    return {
+                                      ...prev,
+                                      imageUrl: prev.imageUrl || directVal,
+                                      imageUrls: [...existing, directVal]
+                                    };
+                                  });
+                                  input.value = '';
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-bold transition-all"
                             >
-                              <X size={14} />
+                              추가
                             </button>
                           </div>
-                        ) : (
-                          <>
-                            <Upload className="text-gray-400 group-hover:text-green-500 mr-2" size={16} />
-                            <span className="text-xs font-medium text-gray-500 group-hover:text-green-600">파일 선택</span>
-                          </>
-                        )}
-                        <input
-                          type="file"
-                          className="hidden"
-                          accept="image/*"
-                          onChange={(e) => handleFileUpload(e, 'post')}
-                          disabled={uploading}
-                        />
-                      </div>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="url"
-                        value={currentPost.imageUrl}
-                        onChange={e => setCurrentPost({ ...currentPost, imageUrl: e.target.value })}
-                        placeholder="이미지, 유튜브, 또는 구글 문서 URL 입력"
-                        className="w-full px-4 py-2 pr-10 text-sm rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
-                      />
-                      {currentPost.imageUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setCurrentPost({ ...currentPost, imageUrl: '' })}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
-                        >
-                          <X size={16} />
-                        </button>
-                      )}
-                    </div>
-                    <div className="mt-1 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                      <p className="text-[10px] text-blue-700 font-bold mb-1">
-                        💡 구글 시트(PAPS 등) 모든 탭을 보이게 하려면?
-                      </p>
-                      <p className="text-[9px] text-blue-600 leading-relaxed">
-                        1. 구글 시트에서 [파일] → [공유] → [웹에 게시] 클릭<br/>
-                        2. [게시] 버튼 누른 후 나오는 링크를 여기에 입력하세요.<br/>
-                        * 단순 공유 링크는 첫 페이지만 보일 수 있습니다.
-                      </p>
-                    </div>
-                    
-                    {/* Image/Doc Preview */}
-                    {currentPost.imageUrl && (
-                      <div className={`mt-2 relative ${isGoogleDoc(currentPost.imageUrl) ? 'h-64' : 'h-32'} rounded-xl overflow-hidden border border-gray-100 bg-gray-50`}>
-                        {isGoogleDoc(currentPost.imageUrl) ? (
-                          <iframe
-                            src={getGoogleDocEmbedUrl(currentPost.imageUrl) || ''}
-                            className="w-full h-full bg-white"
-                            frameBorder="0"
-                          />
-                        ) : (
-                          <img 
-                            src={getDirectImageUrl(currentPost.imageUrl)} 
-                            alt="Preview" 
-                            className="w-full h-full object-cover"
-                            referrerPolicy="no-referrer"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/400/200?grayscale';
-                            }}
-                          />
-                        )}
-                        <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-black/50 backdrop-blur-md rounded text-[8px] font-bold text-white uppercase tracking-wider">
-                          {getYoutubeId(currentPost.imageUrl) ? '유튜브 썸네일' : 
-                           currentPost.imageUrl.includes('forms') || currentPost.imageUrl.includes('forms.gle') ? '구글 설문지' :
-                           isGoogleDoc(currentPost.imageUrl) ? '구글 문서/시트' : '미리보기'}
                         </div>
                       </div>
+                    ) : (
+                      // Single Image Upload for NEWS or NOTICE
+                      <>
+                        <label className="cursor-pointer">
+                          <div className="flex items-center justify-center px-4 py-2 border border-dashed border-gray-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all group">
+                            {uploading ? (
+                              <div className="flex items-center space-x-3">
+                                <div className="flex flex-col items-center space-y-1">
+                                  <Loader2 className="animate-spin text-green-500" size={16} />
+                                  <span className="text-[8px] font-bold text-green-500">{uploadProgress}%</span>
+                                </div>
+                                <button 
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleCancelUpload();
+                                  }}
+                                  className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors"
+                                  title="업로드 취소"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <Upload className="text-gray-400 group-hover:text-green-500 mr-2" size={16} />
+                                <span className="text-xs font-medium text-gray-500 group-hover:text-green-600">파일 선택</span>
+                              </>
+                            )}
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="image/*"
+                              onChange={(e) => handleFileUpload(e, 'post')}
+                              disabled={uploading}
+                            />
+                          </div>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="url"
+                            value={currentPost.imageUrl}
+                            onChange={e => setCurrentPost({ ...currentPost, imageUrl: e.target.value })}
+                            placeholder="이미지, 유튜브, 또는 구글 문서 URL 입력"
+                            className="w-full px-4 py-2 pr-10 text-sm rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
+                          />
+                          {currentPost.imageUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setCurrentPost({ ...currentPost, imageUrl: '' })}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                              <X size={16} />
+                            </button>
+                          )}
+                        </div>
+                        <div className="mt-1 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                          <p className="text-[10px] text-blue-700 font-bold mb-1">
+                            💡 구글 시트(PAPS 등) 모든 탭을 보이게 하려면?
+                          </p>
+                          <p className="text-[9px] text-blue-600 leading-relaxed">
+                            1. 구글 시트에서 [파일] → [공유] → [웹에 게시] 클릭<br/>
+                            2. [게시] 버튼 누른 후 나오는 링크를 여기에 입력하세요.<br/>
+                            * 단순 공유 링크는 첫 페이지만 보일 수 있습니다.
+                          </p>
+                        </div>
+                        
+                        {/* Image/Doc Preview */}
+                        {currentPost.imageUrl && (
+                          <div className={`mt-2 relative ${isGoogleDoc(currentPost.imageUrl) ? 'h-64' : 'h-32'} rounded-xl overflow-hidden border border-gray-100 bg-gray-50`}>
+                            {isGoogleDoc(currentPost.imageUrl) ? (
+                              <iframe
+                                src={getGoogleDocEmbedUrl(currentPost.imageUrl) || ''}
+                                className="w-full h-full bg-white"
+                                frameBorder="0"
+                              />
+                            ) : (
+                              <img 
+                                src={getDirectImageUrl(currentPost.imageUrl)} 
+                                alt="Preview" 
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/400/200?grayscale';
+                                }}
+                              />
+                            )}
+                            <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-black/50 backdrop-blur-md rounded text-[8px] font-bold text-white uppercase tracking-wider">
+                              {getYoutubeId(currentPost.imageUrl) ? '유튜브 썸네일' : 
+                               currentPost.imageUrl.includes('forms') || currentPost.imageUrl.includes('forms.gle') ? '구글 설문지' :
+                               isGoogleDoc(currentPost.imageUrl) ? '구글 문서/시트' : '미리보기'}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
