@@ -37,6 +37,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 }
 import { processFile } from '../utils/faceBlur';
 import { motion } from 'motion/react';
+import { RECOMMENDED_DEFAULT_APPS, findDuplicateAppDocIds, normalizeAppName, deduplicateApps } from '../utils/appsData';
 
 export default function Admin() {
   const [user, setUser] = useState<User | null>(null);
@@ -173,25 +174,31 @@ export default function Admin() {
     });
 
     const aq = query(collection(db, 'apps'), orderBy('createdAt', 'desc'));
-    const unsubscribeApps = onSnapshot(aq, (snapshot) => {
+    const unsubscribeApps = onSnapshot(aq, async (snapshot) => {
       const fetchedApps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppEntry));
       setApps(fetchedApps);
 
-      // Auto-seed default apps if they don't exist
-      const defaultApps = [
-        { name: '나이키 트레이닝 클럽', description: '전문 트레이너와 함께하는 다양한 홈 트레이닝 프로그램', category: '홈 트레이닝', link: 'https://www.nike.com/ntc-app', color: 'bg-black', iconName: 'Activity', isRecommended: true, likesCount: 0 },
-        { name: '홈코트', description: 'AI 기술을 활용한 농구 슈팅 및 드리블 훈련 분석', category: '농구/AI', link: 'https://www.homecourt.ai/', color: 'bg-orange-600', iconName: 'Target', isRecommended: true, likesCount: 0 },
-        { name: '핏데이', description: '매일매일 건강한 습관을 만들어주는 맞춤형 운동 가이드', category: '건강관리', link: 'https://www.fitday.co.kr/', color: 'bg-green-600', iconName: 'Zap', isRecommended: true, likesCount: 0 },
-        { name: '런데이', description: '초보자부터 상급자까지 즐겁게 달릴 수 있는 러닝 가이드', category: '러닝', link: 'https://www.runday.co.kr/', color: 'bg-blue-600', iconName: 'Timer', isRecommended: true, likesCount: 0 }
-      ];
+      // Auto-clean any duplicate app documents from Firestore
+      const duplicateDocIds = findDuplicateAppDocIds(fetchedApps);
+      if (duplicateDocIds.length > 0) {
+        console.log(`[Admin] Cleaning ${duplicateDocIds.length} duplicate app documents:`, duplicateDocIds);
+        for (const dupId of duplicateDocIds) {
+          try {
+            await deleteDoc(doc(db, 'apps', dupId));
+          } catch (err) {
+            console.error("Error auto-deleting duplicate app doc:", dupId, err);
+          }
+        }
+      }
 
+      // Auto-seed default recommended apps if empty
       if (fetchedApps.length === 0) {
-        defaultApps.forEach(async (app) => {
+        for (const app of RECOMMENDED_DEFAULT_APPS) {
           await addDoc(collection(db, 'apps'), {
             ...app,
             createdAt: serverTimestamp()
           });
-        });
+        }
       }
     }, (error) => {
       console.error("Error fetching apps in Admin:", error);
@@ -754,6 +761,49 @@ export default function Admin() {
     }
   };
 
+  const handleSyncAndCleanApps = async () => {
+    setIsSaving(true);
+    try {
+      // 1. Find duplicate docs in Firestore and delete them
+      const duplicateIds = findDuplicateAppDocIds(apps);
+      for (const dupId of duplicateIds) {
+        await deleteDoc(doc(db, 'apps', dupId));
+      }
+
+      // 2. Identify missing recommended default apps and add them
+      const currentNormalizedNames = new Set(
+        apps.filter(a => !duplicateIds.includes(a.id || '')).map(a => normalizeAppName(a.name))
+      );
+      let addedCount = 0;
+      for (const defApp of RECOMMENDED_DEFAULT_APPS) {
+        if (!currentNormalizedNames.has(normalizeAppName(defApp.name))) {
+          await addDoc(collection(db, 'apps'), {
+            ...defApp,
+            createdAt: serverTimestamp()
+          });
+          addedCount++;
+        }
+      }
+
+      setAlertMessage({
+        title: '앱 목록 동기화 완료',
+        message: duplicateIds.length > 0 || addedCount > 0
+          ? `중복 앱 ${duplicateIds.length}개를 정리하고, 신규 추천 앱 ${addedCount}개를 추가하여 총 ${RECOMMENDED_DEFAULT_APPS.length}종의 추천 앱을 동기화했습니다.`
+          : '모든 추천 앱이 중복 없이 최신 상태로 정상 등록되어 있습니다.',
+        type: 'success'
+      });
+    } catch (error) {
+      console.error("Error syncing apps:", error);
+      setAlertMessage({
+        title: '동기화 오류',
+        message: '앱 목록 정리 및 동기화 중 오류가 발생했습니다.',
+        type: 'error'
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSaveSurvey = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentSurvey.title || !currentSurvey.formUrl) {
@@ -1133,12 +1183,30 @@ export default function Admin() {
 
           {/* Apps List */}
           <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden mt-8">
-            <div className="px-6 py-4 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
-              <h2 className="font-bold text-gray-900 flex items-center space-x-2">
+            <div className="px-6 py-4 border-b border-gray-50 bg-gray-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center space-x-2">
                 <Smartphone size={18} className="text-blue-600" />
-                <span>추천 앱 목록</span>
-              </h2>
-              <span className="text-xs font-bold text-gray-400">{apps.length}개의 앱</span>
+                <h2 className="font-bold text-gray-900">추천 앱 목록</h2>
+                <span className="text-xs font-bold text-gray-400">({apps.length}개 등록됨)</span>
+              </div>
+              <div className="flex items-center space-x-2 w-full sm:w-auto">
+                <button
+                  onClick={handleSyncAndCleanApps}
+                  disabled={isSaving}
+                  className="px-3.5 py-1.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-bold transition-all flex items-center space-x-1.5 disabled:opacity-50"
+                  title="중복된 앱을 1개로 통일하고 최신 추천 앱(9종)을 자동 동기화합니다"
+                >
+                  <Database size={14} />
+                  <span>중복 정리 & 추천앱 동기화</span>
+                </button>
+                <button
+                  onClick={() => { setIsEditingApp(true); setCurrentApp({ name: '', description: '', category: '', link: '', color: 'bg-blue-600', iconName: 'Activity', isRecommended: false }); }}
+                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold transition-all flex items-center space-x-1.5 shadow-sm"
+                >
+                  <Plus size={14} />
+                  <span>앱 추가</span>
+                </button>
+              </div>
             </div>
             
             <div className="p-6 space-y-4">
